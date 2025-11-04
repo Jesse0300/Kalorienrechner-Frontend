@@ -1,15 +1,23 @@
 <script setup lang="ts">
-export interface Food { id?: number; name: string; calories: number }
-const props = defineProps<{ items: Food[] }>()
+import { ref, onMounted } from "vue";
+import { api } from "../service/api";
+
+const foods = ref<any[]>([]);
+
+onMounted(async () => {
+  const response = await api.get("/foods");
+  foods.value = response.data;
+});
 </script>
 
 <template>
-  <div v-if="!items?.length" class="text-gray-500 italic">Keine Einträge vorhanden.</div>
-  <ul v-else class="divide-y">
-    <li v-for="f in items" :key="f.id ?? f.name" class="py-2 flex justify-between">
-      <span>{{ f.name }}</span>
-      <span>{{ f.calories }} kcal/100g</span>
-    </li>
-  </ul>
+  <div>
+    <h2>Lebensmittel</h2>
+    <ul>
+      <li v-for="f in foods" :key="f.id">
+        {{ f.name }} — {{ f.calories }} kcal/100g
+      </li>
+    </ul>
+  </div>
 </template>
 

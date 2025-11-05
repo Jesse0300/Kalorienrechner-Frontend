@@ -1,8 +1,5 @@
-
 <template>
-  <div>
-    <FatSecretSearch />
-  </div>
+  <FatSecretSearch />
 </template>
 
 <script setup>

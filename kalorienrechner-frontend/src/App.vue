@@ -1,10 +1,10 @@
-<script setup lang="ts">
-import FoodList from "./components/FoodList.vue";
-import FoodForm from "./components/FoodForm.vue";
-</script>
 
 <template>
-  <FoodForm />
-  <hr />
-  <FoodList />
+  <div>
+    <FatSecretSearch />
+  </div>
 </template>
+
+<script setup>
+import FatSecretSearch from "./components/ui/fatSecretSearch.vue";
+</script>

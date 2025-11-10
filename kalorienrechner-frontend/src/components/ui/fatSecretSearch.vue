@@ -166,12 +166,12 @@ async function importToDb(item: FSFood) {
 
 <style>
 :root {
-  --bg: #1E90FF;
-  --surface: #f6f9fc;
-  --surface-2: #f6f9fc;
+  --bg: #165FBA;
+  --surface: #165FBA;
+  --surface-2: #165FBA;
   --text: #0e1a2b;
   --muted: #b9c3cf;
-  --primary: #00e6ff;
+  --primary: #FFFFFF;
   --primary-light: #5ff3ff;
   --danger: #ff8080;
   --shadow: rgba(0,0,0,0.45);

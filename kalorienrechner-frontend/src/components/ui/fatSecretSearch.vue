@@ -172,7 +172,7 @@ async function importToDb(item: FSFood) {
   --text: #0e1a2b;
   --muted: #b9c3cf;
   --primary: #FFFFFF;
-  --primary-light: #5ff3ff;
+  --primary-light: #FFFFFF;
   --danger: #ff8080;
   --shadow: rgba(0,0,0,0.45);
 }

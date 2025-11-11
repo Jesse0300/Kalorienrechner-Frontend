@@ -1,4 +1,9 @@
 <template>
+  <div class="topbar">
+    <img src="/src/assets/logo.svg" alt="Logo" class="logo" />
+    <span class="brand">FatSecret - Kalorientracker</span>
+  </div>
+
   <div class="page">
     <header class="header">
       <h1>FatSecret Suche</h1>
@@ -11,7 +16,7 @@
         @keyup.enter="runSearch(1)"
         class="input"
         type="text"
-        placeholder="z. B. apple, banana, chicken breast …"
+        placeholder="z. B. Apple, Banana, Chicken breast …"
       />
       <button class="btn" :disabled="loading" @click="runSearch(1)">
         {{ loading ? "Suche…" : "Suchen" }}
@@ -21,7 +26,7 @@
     <section v-if="error" class="alert error">{{ error }}</section>
 
     <section v-if="!loading && results.length === 0 && hasSearched" class="empty">
-      Keine Ergebnisse gefunden. Probiere englische Begriffe (banana, rice, milk …)
+      Keine Ergebnisse gefunden. Versuche es erneut mit englischen Begriffen (Banana, Rice, Milk …)
     </section>
 
     <section v-if="loading" class="loading">
@@ -166,25 +171,35 @@ async function importToDb(item: FSFood) {
 
 <style>
 :root {
-  --bg: #165FBA;
-  --surface: #165FBA;
-  --surface-2: #165FBA;
+  --bg: #eaeaea;
+  --surface: #eaeaea;
+  --surface-2: #000000;
+  --searchbutton: #8ea5c2;
   --text: #0e1a2b;
   --muted: #b9c3cf;
-  --primary: #FFFFFF;
+  --addbutton: #8ea5c2;
+  --boxborderdetails: #ffffff;
   --primary-light: #FFFFFF;
   --danger: #ff8080;
-  --shadow: rgba(0,0,0,0.45);
+  --shadow: rgba(80, 80, 80, 0.78);
 }
 
 .page {
-  min-height: 100vh;
+  min-height: 50vh;
   background: var(--bg);
   color: var(--text);
-  padding: 2.5rem 1rem 4rem;
-  display: grid;
+
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+
   gap: 1.6rem;
-  place-items: center;
+  padding: 1.6rem;
+  box-sizing: border-box;
+
+  padding-top: 100px;
 }
 
 .header { text-align: center; }
@@ -192,8 +207,13 @@ async function importToDb(item: FSFood) {
 .sub { color: var(--muted); margin-top: 0.5rem; }
 
 .searchbar {
-  display: flex; gap: 0.6rem; width: min(680px, 95%);
+  display: flex;
+  gap: 0.6rem;
+  width: 100%;
+  max-width: 680px;
+  margin: 0 auto;
   justify-content: center;
+  justify-self: center;
 }
 .input {
   flex: 1; padding: 0.8rem 1rem; font-size: 1rem;
@@ -203,20 +223,20 @@ async function importToDb(item: FSFood) {
   outline: none; transition: 0.2s;
 }
 .input:focus {
-  border-color: var(--primary);
+  border-color: var(--boxborderdetails);
   box-shadow: 0 0 0 2px rgba(0,230,255,0.25);
 }
 
 .btn {
   padding: 0.75rem 1.1rem; border-radius: 0.6rem;
   border: 1px solid var(--surface-2);
-  background: var(--surface-2); color: var(--text);
+  background: var(--searchbutton); color: var(--text);
   cursor: pointer; font-weight: 600;
   transition: 0.2s;
 }
 .btn:disabled { opacity: 0.6; cursor: default; }
 .btn.primary {
-  background: var(--primary);
+  background: var(--addbutton);
   color: #000;
   border-color: transparent;
   font-weight: 700;
@@ -226,7 +246,7 @@ async function importToDb(item: FSFood) {
 }
 .btn.ghost {
   background: transparent;
-  border-color: var(--primary);
+  border-color: var(--boxborderdetails);
   color: var(--primary-light);
 }
 .btn.ghost:hover {
@@ -248,7 +268,7 @@ async function importToDb(item: FSFood) {
   width: 28px; height: 28px;
   border-radius: 50%;
   border: 3px solid #333;
-  border-top-color: var(--primary);
+  border-top-color: var(--addbutton);
   animation: spin 1s linear infinite;
 }
 @keyframes spin { to { transform: rotate(360deg) } }
@@ -257,8 +277,10 @@ async function importToDb(item: FSFood) {
 
 .grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  gap: 1rem; width: min(980px, 95%);
+  grid-template-columns: 1fr;
+  gap: 1rem;
+  width: min(700px, 75%);
+  margin: 0 auto;
 }
 .card {
   background: var(--surface);
@@ -266,8 +288,8 @@ async function importToDb(item: FSFood) {
   border-radius: 0.9rem;
   padding: 1rem;
   display: grid;
-  gap: 0.8rem;
-  box-shadow: 0 0 20px var(--shadow);
+  gap: 0.5rem;
+  box-shadow: 0 0 5px var(--shadow);
   transition: 0.2s;
 }
 .card:hover { border-color: var(--primary-light); transform: translateY(-2px); }
@@ -280,5 +302,33 @@ async function importToDb(item: FSFood) {
   display: flex; gap: 1rem;
   align-items: center; color: var(--muted);
   margin-top: 1.2rem;
+}
+.topbar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 64px;
+
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+
+  background: #165FBAFF;
+  backdrop-filter: blur(6px);
+  border-bottom: 1px solid #d0d0d0;
+  padding: 0 2rem;
+  box-sizing: border-box;
+
+  z-index: 1000;
+}
+.logo {
+  height: 36px;
+  width: auto;
+}
+.brand {
+  font-weight: 700;
+  font-size: 1.1rem;
+  color: #FFFFFF;
 }
 </style>

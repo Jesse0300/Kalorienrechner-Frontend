@@ -88,7 +88,7 @@
 <script setup lang="ts">
 import { computed } from "vue";
 import { Wheat, Droplet, Dumbbell } from "lucide-vue-next";
-import type { UserGoalData } from "../types/goals";
+import type { UserGoalData } from "../../types/goals.ts"; // Mmt. ungenutzt
 
 const props = defineProps<{
   targetCalories?: number;

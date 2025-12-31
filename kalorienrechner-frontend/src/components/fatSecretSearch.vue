@@ -1,164 +1,158 @@
 <template>
-  <div class="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
-    <h2 class="text-gray-900 mb-6">Kalorienübersicht</h2>
-
-    <div class="flex items-center justify-center gap-16 mb-8">
-      <div class="text-center">
-        <div class="text-gray-500 text-sm mb-1">Gegessen</div>
-        <div class="text-3xl text-gray-900">{{ consumed }}</div>
-        <div class="text-gray-400 text-sm">kcal</div>
-      </div>
-
-      <div class="relative w-40 h-40">
-        <svg
-          class="w-40 h-40"
-          :style="{ transform: 'rotate(135deg)' }"
-        >
-          <circle
-            cx="80"
-            cy="80"
-            :r="radius"
-            stroke="currentColor"
-            stroke-width="16"
-            fill="none"
-            class="text-gray-100"
-            :stroke-dasharray="`${arcLength} ${circumference}`"
-            stroke-linecap="round"
-          />
-          <circle
-            cx="80"
-            cy="80"
-            :r="radius"
-            stroke="currentColor"
-            stroke-width="16"
-            fill="none"
-            class="text-green-500 transition-all duration-500"
-            :stroke-dasharray="`${arcLength} ${circumference}`"
-            :stroke-dashoffset="progressDashoffset"
-            stroke-linecap="round"
-          />
-        </svg>
-
-        <div class="absolute inset-0 flex flex-col items-center justify-center">
-          <div class="text-4xl text-gray-900 mb-1">
-            {{ remaining }}
-          </div>
-          <div class="text-gray-500 text-sm">übrig</div>
-        </div>
-      </div>
-
-      <div class="text-center">
-        <div class="text-gray-500 text-sm mb-1">Ziel</div>
-        <div class="text-3xl text-gray-900">{{ target }}</div>
-        <div class="text-gray-400 text-sm">kcal</div>
-      </div>
-    </div>
-
-    <div>
-      <h3 class="text-gray-900 mb-4">Makronährstoffe</h3>
-      <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div
-          v-for="macro in macros"
-          :key="macro.name"
-        >
-          <div class="flex items-center justify-between mb-2">
-            <div class="flex items-center gap-2">
-              <div
-                class="p-1.5 rounded-lg"
-                :class="macro.lightColor"
-              >
-
-                <span class="text-base">
-                  {{ macro.icon }}
-                </span>
-              </div>
-              <span class="text-gray-700 text-sm">
-                {{ macro.name }}
-              </span>
-            </div>
-          </div>
-
-          <div class="text-gray-900 text-sm mb-2">
-            {{ macro.current }}{{ macro.unit }} /
-            {{ macro.target }}{{ macro.unit }}
-          </div>
-
-          <div class="h-2 bg-gray-100 rounded-full overflow-hidden">
-            <div
-              class="h-full transition-all duration-500"
-              :class="macro.color"
-              :style="{ width: `${Math.min(macro.percentage, 100)}%` }"
-            />
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
+  <FoodSearch
+    :mealType="mealType"
+    v-model:query="q"
+    :results="uiResults"
+    :loading="loading"
+    :error="error"
+    :hasSearched="hasSearched"
+    :page="page"
+    @close="emit('close')"
+    @search="runSearch"
+    @import="importToDb"
+    @preview="preview"
+    @add="onAddFromModal"
+  />
 </template>
 
 <script setup lang="ts">
-import { computed } from "vue";
-import type { UserGoalData } from "../types/goals";
+import { computed, ref } from "vue";
+import axios from "axios";
+import FoodSearch from "./ui/FoodSearch.vue";
 
 const props = defineProps<{
-  targetCalories?: number;
-  userGoalData?: UserGoalData | null;
+  mealType: MealType;
 }>();
 
-const consumed = 0;
-const target = computed(() => props.targetCalories ?? 2000);
-const remaining = computed(() => target.value - consumed);
-const consumedPercent = computed(() =>
-  target.value > 0 ? (consumed / target.value) * 100 : 0
-);
+const emit = defineEmits<{
+  (e: "close"): void;
+}>();
 
+const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:8080";
 
-const radius = 70;
-const circumference = 2 * Math.PI * radius;
-const arcLength = (circumference * 270) / 360;
-const progressDashoffset = computed(
-  () => arcLength * (1 - consumedPercent.value / 100)
-);
+const q = ref("");
+const page = ref(1);
+const size = 10;
 
+const results = ref<any[]>([]);
+const loading = ref(false);
+const error = ref("");
+const hasSearched = ref(false);
+const importingId = ref<string | number | null>(null);
 
-const macros = computed(() => {
-  const carbsTarget = props.userGoalData?.macros.carbs ?? 250;
-  const fatTarget = props.userGoalData?.macros.fat ?? 67;
-  const proteinTarget = props.userGoalData?.macros.protein ?? 150;
+function toArray<T>(x: T | T[] | undefined): T[] {
+  if (!x) return [];
+  return Array.isArray(x) ? x : [x];
+}
 
-  const base = [
-    {
-      name: "Kohlenhydrate",
-      icon: "🌾",
-      current: 0,
-      target: carbsTarget,
-      unit: "g",
-      color: "bg-amber-500",
-      lightColor: "bg-amber-50",
-    },
-    {
-      name: "Fett",
-      icon: "💧",
-      current: 0,
-      target: fatTarget,
-      unit: "g",
-      color: "bg-violet-500",
-      lightColor: "bg-violet-50",
-    },
-    {
-      name: "Eiweiß",
-      icon: "💪",
-      current: 0,
-      target: proteinTarget,
-      unit: "g",
-      color: "bg-cyan-500",
-      lightColor: "bg-cyan-50",
-    },
-  ];
+function parseDescription(desc: string | undefined) {
+  const s = desc ?? "";
+  const num = (m: RegExpMatchArray | null): number | null =>
+    m?.[1] ? Number(m[1].replace(",", ".")) : null;
 
-  return base.map((m) => ({
-    ...m,
-    percentage: m.target > 0 ? (m.current / m.target) * 100 : 0,
-  }));
+  return {
+    calories: num(s.match(/Calories:\s*([\d.,]+)/i)),
+    carbs: num(s.match(/Carbs:\s*([\d.,]+)/i)),
+    protein: num(s.match(/Protein:\s*([\d.,]+)/i)),
+    fat: num(s.match(/Fat:\s*([\d.,]+)/i)),
+  };
+}
+
+async function runSearch(targetPage = 1) {
+  if (!q.value.trim()) return;
+  loading.value = true;
+  hasSearched.value = true;
+  error.value = "";
+  page.value = targetPage;
+
+  try {
+    const res = await axios.get(`${API_BASE}/api/fatsecret/search`, {
+      params: { q: q.value.trim(), page: page.value, size },
+    });
+
+    if (res.data?.error?.message) throw new Error(res.data.error.message);
+
+    // Obj oder Arr
+    const foods = res.data?.foods?.food ?? res.data?.foods ?? [];
+    results.value = toArray<any>(foods);
+  } catch (e: any) {
+    const msg =
+      e?.response?.data?.error?.message ??
+      e?.response?.statusText ??
+      e?.message ??
+      "Unbekannter Fehler";
+    error.value = `Fehler: ${msg}`;
+    results.value = [];
+  } finally {
+    loading.value = false;
+  }
+}
+
+function preview(item: any) {
+  const parsed = parseDescription(item?.food_description);
+  alert(
+    `${item?.food_name ?? "—"}\n\n${item?.food_description ?? "—"}\n\n` +
+    `→ Für 100 g erkannt:\n` +
+    `kcal: ${parsed.calories ?? "?"}, KH: ${parsed.carbs ?? "?"} g, ` +
+    `Protein: ${parsed.protein ?? "?"} g, Fett: ${parsed.fat ?? "?"} g`
+  );
+}
+
+async function importToDb(item: any) {
+  importingId.value = item?.food_id ?? null;
+
+  const parsed = parseDescription(item?.food_description);
+  const payload = {
+    name: item?.food_name,
+    calories: parsed.calories,
+    carbs: parsed.carbs,
+    protein: parsed.protein,
+    fat: parsed.fat,
+    categoryId: null,
+  };
+
+  try {
+    await axios.post(`${API_BASE}/api/foods`, payload, {
+      headers: { "Content-Type": "application/json" },
+    });
+    alert(`„${item?.food_name ?? "Lebensmittel"}“ wurde gespeichert ✅`);
+  } catch (e: any) {
+    const msg =
+      e?.response?.data?.message ??
+      e?.response?.statusText ??
+      e?.message ??
+      "Unbekannter Fehler";
+    alert(`Speichern fehlgeschlagen: ${msg}`);
+  } finally {
+    importingId.value = null;
+  }
+}
+
+import type { FoodSearchItem, MealType } from "@/types/FoodSearchTypes";
+
+const uiResults = computed<FoodSearchItem[]>(() => {
+  return (results.value ?? []).map((it: any) => {
+    const parsed = parseDescription(it?.food_description);
+    return {
+      id: it?.food_id,
+      name: it?.food_name ?? "—",
+      description: it?.food_description ?? "—",
+      calories: parsed.calories ?? 0,
+      carbs: parsed.carbs ?? 0,
+      fat: parsed.fat ?? 0,
+      protein: parsed.protein ?? 0,
+      isFavorite: false,
+      raw: it,
+    };
+  });
 });
+
+// Mahlzeiten speichern sich momentan nur in DB, zukünftig auch im Dashboard
+// POST / Endpoints Entities in Backend einfügen für Kompatiblität
+function onAddFromModal(payload: { item: any; portion: number; mealType: string }) {
+  importToDb(payload.item);
+  emit("close");
+}
+
+
 </script>

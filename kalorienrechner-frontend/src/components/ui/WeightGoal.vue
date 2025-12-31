@@ -110,7 +110,7 @@
 
 <script setup lang="ts">
 import { ref, computed } from "vue";
-import type { UserGoalData, GoalType } from "../types/goals";
+import type { UserGoalData, GoalType } from "../../types/goals.ts";
 
 const goalOptions: Array<{
   id: GoalType;

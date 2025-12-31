@@ -25,7 +25,7 @@
           <span class="w-5 h-5 text-gray-500 mt-0.5">👤</span>
           <div class="flex-1">
             <div class="text-sm text-gray-600 mb-1">Name</div>
-            <div class="text-gray-900">Benutzer</div>
+            <div class="text-gray-900">Benutzer (Mock - fehlende DB Einbindung)</div>
           </div>
         </div>
 
@@ -58,7 +58,7 @@
             <span class="w-5 h-5 text-gray-500">🎨</span>
             <div>
               <div class="text-gray-900">Dunkler Modus</div>
-              <div class="text-sm text-gray-600">Aktiviere das dunkle Design</div>
+              <div class="text-sm text-gray-600">Aktiviere das dunkle Design (WIP) </div>
             </div>
           </div>
           <label class="relative inline-flex items-center cursor-pointer">
@@ -73,9 +73,7 @@
 
     <div class="p-4 bg-blue-50 rounded-xl border border-blue-100">
       <p class="text-sm text-gray-700">
-        <span class="font-semibold">Hinweis:</span> Die
-        Authentifizierungs-Funktionen sind aktuell deaktiviert. Diese Seite dient
-        als Platzhalter für zukünftige Einstellungen.
+        <span class="font-semibold">Hinweis:</span> Momentan keine richtige Login Logik.
       </p>
     </div>
   </div>

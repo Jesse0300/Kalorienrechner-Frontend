@@ -88,7 +88,7 @@
 
 <script setup lang="ts">
 import { computed } from "vue";
-import type { UserGoalData } from "../types/goals";
+import type { UserGoalData } from "../../types/goals.ts"; // Mmt. ungenutzt
 import CalorieOverview from "./CalorieOverview.vue";
 import StreakCard from "./StreakCard.vue";
 

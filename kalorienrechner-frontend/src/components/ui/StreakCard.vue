@@ -62,13 +62,13 @@
       </div>
       <div>
         <div class="text-gray-900">Wochenmeister</div>
-        <div class="text-gray-600 text-sm">7 Tage in Folge!</div>
+        <div class="text-gray-600 text-sm">0 Tage in Folge!</div>
       </div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-const streakDays = 12;
-const last7Days = [true, true, true, false, true, true, true];
+const streakDays = 0; // Mock da fehlende Backend Einbindung
+const last7Days = [false, false, false, false, false, false, false];
 </script>

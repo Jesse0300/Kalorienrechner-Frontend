@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, onMounted } from "vue";
-import { api } from "../service/api";
+import { api } from "../../service/api.ts";
 
 const foods = ref<any[]>([]);
 

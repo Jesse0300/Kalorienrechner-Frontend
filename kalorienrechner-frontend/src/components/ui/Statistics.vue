@@ -14,7 +14,7 @@
         <div class="text-3xl text-gray-900 mb-1">{{ avgCalories }}</div>
         <div class="flex items-center gap-1 text-green-600 text-sm">
           <span>📉</span>
-          <span>5% unter Ziel</span>
+          <span>0% unter Ziel</span>
         </div>
       </div>
 
@@ -37,8 +37,7 @@
     <div class="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
       <h2 class="text-gray-900 mb-2">Kalorien (letzte 7 Tage)</h2>
       <p class="text-gray-500 text-sm">
-        Das Diagramm wird später mit einer Vue-Chart-Library umgesetzt. Aktuell liegen
-        noch keine Trackingdaten vor.
+        Keine Daten vorhanden da die Logik noch nicht vorhanden ist.
       </p>
     </div>
   </div>

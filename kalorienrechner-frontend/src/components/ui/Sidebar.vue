@@ -60,7 +60,7 @@
 </template>
 
 <script setup lang="ts">
-import type { UserGoalData } from "../types/goals";
+import type { UserGoalData } from "../../types/goals.ts";
 
 type View = "dashboard" | "statistics" | "weight-goal" | "settings";
 

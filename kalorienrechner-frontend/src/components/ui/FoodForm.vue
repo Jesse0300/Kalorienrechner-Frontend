@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref } from "vue";
-import { api } from "../service/api";
+import { api } from "../../service/api.ts";
 
 const food = ref({
   name: "",

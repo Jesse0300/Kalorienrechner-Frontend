@@ -35,12 +35,12 @@
 import { ref } from "vue";
 import type { UserGoalData } from "./types/goals";
 
-import Sidebar from "./components/Sidebar.vue";
-import Dashboard from "./components/Dashboard.vue";
-import Statistics from "./components/Statistics.vue";
-import WeightGoal from "./components/WeightGoal.vue";
-import Settings from "./components/Settings.vue";
-import FatSecretSearch from "./components/ui/fatSecretSearch.vue";
+import Sidebar from "./components/ui/Sidebar.vue";
+import Dashboard from "./components/ui/Dashboard.vue";
+import Statistics from "./components/ui/Statistics.vue";
+import WeightGoal from "./components/ui/WeightGoal.vue";
+import Settings from "./components/ui/Settings.vue";
+import FatSecretSearch from "./components/fatSecretSearch.vue";
 
 type View = "dashboard" | "statistics" | "weight-goal" | "settings";
 type MealType = "breakfast" | "lunch" | "dinner" | "snacks";

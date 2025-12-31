@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
 import { api } from '@/service/api'
-import FoodList from '@/components/FoodList.vue'
+import FoodList from '@/components/ui/FoodList.vue'
 
 type Food = { id?: number; name: string; calories: number }
 const foods = ref<Food[]>([])

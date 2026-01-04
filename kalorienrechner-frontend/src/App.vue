@@ -5,6 +5,7 @@
     <Sidebar
       :current-view="currentView"
       :user-goal-data="userGoalData"
+      :current-user-label="currentUserLabel"
       @navigate="handleNavigate"
     />
 
@@ -28,8 +29,9 @@
 
     <FatSecretSearch
       v-if="showFoodSearch"
-      :meal-type="selectedMealType"
+      :mealType="selectedMealType"
       @close="showFoodSearch = false"
+      @added="handleFoodAdded"
     />
   </div>
 </template>
@@ -39,7 +41,7 @@ import { onMounted, onUnmounted, ref } from "vue";
 import type { UserGoalData } from "./types/goals";
 import type { MealsDayDTO } from "./types/meals";
 import { api } from "./service/api";
-import { getToken } from "./service/auth";
+import { getToken, getCurrentUserLabel, clearToken } from "./service/auth";
 
 import Auth from "./components/ui/Auth.vue";
 import Sidebar from "./components/ui/Sidebar.vue";
@@ -53,20 +55,19 @@ type View = "dashboard" | "statistics" | "weight-goal" | "settings";
 type MealType = "breakfast" | "lunch" | "dinner" | "snacks";
 
 const isAuthed = ref(!!getToken());
+const currentUserLabel = ref<string | null>(getCurrentUserLabel());
 
 function onAuthSuccess() {
-  // Token wurde im Auth-Flow gespeichert (localStorage jwt)
   isAuthed.value = true;
-
-  // Optional: nach Login direkt Dashboard
+  currentUserLabel.value = getCurrentUserLabel();
   currentView.value = "dashboard";
-
-  // Optional: Tagesdaten laden
   loadMealsForToday();
 }
 
 function onAuthLogout() {
+  clearToken();
   isAuthed.value = false;
+  currentUserLabel.value = null;
   showFoodSearch.value = false;
   currentView.value = "dashboard";
 }
@@ -76,12 +77,9 @@ const showFoodSearch = ref(false);
 const selectedMealType = ref<MealType>("breakfast");
 
 const userGoalData = ref<UserGoalData | null>(null);
-
-// muss an Dashboard übergeben werden
 const mealsDay = ref<MealsDayDTO | null>(null);
 
 function isoDate(d: Date) {
-  // YYYY-MM-DD
   return d.toISOString().slice(0, 10);
 }
 
@@ -109,14 +107,18 @@ function handleGoalUpdate(data: UserGoalData) {
   userGoalData.value = data;
 }
 
-onMounted(() => {
-  // Falls Token schon vorhanden (z.B. nach Refresh), bleib eingeloggt
-  isAuthed.value = !!getToken();
+/** nach Add Tagesdaten neu laden */
+async function handleFoodAdded() {
+  await loadMealsForToday();
+  showFoodSearch.value = false;
+}
 
-  // Logout-Event kommt aus axios interceptor (service/api.ts) bei 401
+onMounted(() => {
+  isAuthed.value = !!getToken();
+  currentUserLabel.value = getCurrentUserLabel();
+
   window.addEventListener("auth-logout", onAuthLogout);
 
-  // Nur laden, wenn eingeloggt
   if (isAuthed.value) loadMealsForToday();
 });
 

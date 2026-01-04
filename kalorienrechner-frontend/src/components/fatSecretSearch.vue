@@ -23,12 +23,12 @@ import type { FoodSearchItem, MealType } from "../types/FoodSearchTypes";
 import { toBackendMealType, todayLocalISO } from "../types/mealsBackend";
 
 const props = defineProps<{
-  mealType: MealType; // ✅ war string
+  mealType: MealType;
 }>();
 
 const emit = defineEmits<{
   (e: "close"): void;
-  (e: "added"): void; // signalisiert App.vue: bitte Tagesdaten neu laden
+  (e: "added"): void; // ✅ wichtig: signalisiert App.vue -> neu laden
 }>();
 
 const q = ref("");
@@ -42,29 +42,24 @@ const hasSearched = ref(false);
 const rawFoods = ref<any[]>([]);
 const importingId = ref<string | number | null>(null);
 
-function parseDescription(desc: string | undefined | null) {
-  const s = String(desc ?? "");
-
-  // typische FatSecret-Patterns: "Calories: 120kcal | Fat: 4g | Carbs: 18g | Protein: 3g"
-  const calories = matchNumber(s, /Calories:\s*([\d.,]+)/i);
-  const fat = matchNumber(s, /Fat:\s*([\d.,]+)/i);
-  const carbs = matchNumber(s, /Carbs:\s*([\d.,]+)/i);
-  const protein = matchNumber(s, /Protein:\s*([\d.,]+)/i);
-
-  return {
-    calories,
-    fat,
-    carbs,
-    protein,
-  };
-}
-
 function matchNumber(text: string, re: RegExp): number {
   const m = text.match(re);
   if (!m?.[1]) return 0;
   const v = Number(String(m[1]).replace(",", "."));
   return Number.isFinite(v) ? v : 0;
 }
+
+function parseDescription(desc: string | undefined | null) {
+  const s = String(desc ?? "");
+  const calories = matchNumber(s, /Calories:\s*([\d.,]+)/i);
+  const fat = matchNumber(s, /Fat:\s*([\d.,]+)/i);
+  const carbs = matchNumber(s, /Carbs:\s*([\d.,]+)/i);
+  const protein = matchNumber(s, /Protein:\s*([\d.,]+)/i);
+
+  return { calories, fat, carbs, protein };
+}
+
+const mealType = computed(() => props.mealType);
 
 const uiResults = computed<FoodSearchItem[]>(() => {
   return rawFoods.value.map((it: any) => {
@@ -92,12 +87,10 @@ async function runSearch(newPage: number) {
   page.value = newPage;
 
   try {
-    // Backend: GET /api/fatsecret/search?q=...&page=...&size=...
     const res = await api.get("/fatsecret/search", {
       params: { q: query, page: page.value, size },
     });
 
-    // FatSecret API Response ist meist: { foods: { food: [...] } }
     const foodsNode = res.data?.foods;
     const list = foodsNode?.food;
 
@@ -117,7 +110,7 @@ async function runSearch(newPage: number) {
 }
 
 function preview(_item: any) {
-  // optional: du kannst hier später ein Preview-Modal bauen
+  // optional
 }
 
 async function importToDb(item: any): Promise<number> {
@@ -125,7 +118,6 @@ async function importToDb(item: any): Promise<number> {
 
   const parsed = parseDescription(item?.food_description);
   const payload = {
-    // FoodController erwartet FoodDTO
     name: item?.food_name,
     calories: parsed.calories,
     protein: parsed.protein,
@@ -144,10 +136,10 @@ async function importToDb(item: any): Promise<number> {
 
 async function onAddFromModal(payload: { item: any; portion: number; mealType: MealType }) {
   try {
-    // 1) Food in DB speichern -> liefert DB-ID
+    // 1) Food speichern
     const foodId = await importToDb(payload.item);
 
-    // 2) MealItem hinzufügen
+    // 2) MealItem speichern
     await api.post("/meals/items", {
       date: todayLocalISO(),
       mealType: toBackendMealType(payload.mealType as any),
@@ -155,7 +147,7 @@ async function onAddFromModal(payload: { item: any; portion: number; mealType: M
       amountGrams: Number(payload.portion || 0),
     });
 
-    // 3) App soll neu laden
+    // ✅ 3) wichtig: App soll neu laden
     emit("added");
     emit("close");
   } catch (e: any) {

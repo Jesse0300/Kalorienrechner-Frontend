@@ -1,9 +1,14 @@
 <template>
-  <div class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/20 backdrop-blur-sm">
-    <div class="bg-white rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
-      <div class="p-6 border-b border-gray-200">
-        <div class="flex items-center justify-between mb-4">
-          <h2 class="text-gray-900">Lebensmittel hinzufügen</h2>
+  <div class="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50">
+    <div class="bg-white w-full max-w-4xl rounded-2xl shadow-xl overflow-hidden">
+      <div class="p-6 border-b border-gray-100">
+        <div class="flex items-start justify-between mb-4">
+          <div>
+            <h2 class="text-xl font-semibold text-gray-900">Lebensmittel hinzufügen</h2>
+            <p class="text-sm text-gray-500 mt-1">
+              Für: <span class="font-medium">{{ mealLabels[mealType] }}</span>
+            </p>
+          </div>
           <button
             type="button"
             @click="emit('close')"
@@ -17,11 +22,11 @@
         <div class="relative mb-4">
           <Search class="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
           <input
-            type="text"
-            placeholder="Lebensmittel suchen... (ENG)"
             :value="query"
+            type="text"
+            placeholder="Lebensmittel suchen…"
             @input="onQueryInput"
-            @keyup.enter="emit('search', 1)"
+            @keyup.enter="emit('search', 0)"
             class="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-500"
           />
         </div>
@@ -59,115 +64,155 @@
           <div class="ml-auto flex items-center gap-2">
             <button
               type="button"
-              @click="emit('search', 1)"
-              class="px-4 py-2 rounded-lg bg-cyan-600 text-white hover:bg-cyan-700 transition-colors disabled:opacity-60"
-              :disabled="loading || !query.trim()"
+              @click="emit('search', 0)"
+              class="px-4 py-2 rounded-lg bg-cyan-600 text-white hover:bg-cyan-700 transition-colors"
             >
-              {{ loading ? "Suche…" : "Suchen" }}
+              Suchen
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-0">
+        <!-- left: list -->
+        <div class="p-6 border-r border-gray-100 max-h-[70vh] overflow-auto">
+          <div v-if="loading" class="text-gray-500">Suche läuft…</div>
+          <div v-else-if="error" class="text-red-600">{{ error }}</div>
+          <div v-else-if="hasSearched && filteredFoods.length === 0" class="text-gray-500">
+            Keine Ergebnisse.
+          </div>
+
+          <ul v-else class="space-y-2">
+            <li
+              v-for="food in filteredFoods"
+              :key="food.id"
+              @click="selectedId = food.id"
+              class="p-3 rounded-lg border cursor-pointer transition-colors"
+              :class="selectedId === food.id ? 'border-cyan-500 bg-cyan-50' : 'border-gray-200 hover:bg-gray-50'"
+            >
+              <div class="font-medium text-gray-900">{{ food.name }}</div>
+              <div v-if="food.description" class="text-xs text-gray-500 mt-1 line-clamp-2">
+                {{ food.description }}
+              </div>
+
+              <div class="text-xs text-gray-600 mt-2 flex gap-3">
+                <span>{{ food.calories ?? "?" }} kcal</span>
+                <span v-if="food.carbs != null">KH {{ food.carbs }}</span>
+                <span v-if="food.protein != null">P {{ food.protein }}</span>
+                <span v-if="food.fat != null">F {{ food.fat }}</span>
+              </div>
+            </li>
+          </ul>
+
+          <div v-if="hasSearched" class="flex items-center justify-between mt-4">
+            <button
+              class="px-3 py-2 rounded-lg border border-gray-200 hover:bg-gray-50 disabled:opacity-50"
+              :disabled="page <= 0 || loading"
+              @click="emit('search', page - 1)"
+            >
+              Zurück
+            </button>
+
+            <div class="text-sm text-gray-600">Seite {{ page + 1 }}</div>
+
+            <button
+              class="px-3 py-2 rounded-lg border border-gray-200 hover:bg-gray-50 disabled:opacity-50"
+              :disabled="loading"
+              @click="emit('search', page + 1)"
+            >
+              Weiter
             </button>
           </div>
         </div>
 
-        <p v-if="error" class="mt-4 text-sm text-red-600">{{ error }}</p>
-      </div>
+        <!-- right: details -->
+        <div class="p-6 max-h-[70vh] overflow-auto">
+          <div v-if="!selectedFood" class="text-gray-500">
+            Wähle links ein Lebensmittel aus.
+          </div>
 
-      <div class="flex-1 overflow-y-auto p-6">
-        <div v-if="loading" class="text-gray-500">Lade Ergebnisse…</div>
+          <div v-else>
+            <h3 class="text-lg font-semibold text-gray-900">{{ selectedFood.name }}</h3>
+            <p v-ifড়="selectedFood.description" class="text-sm text-gray-600 mt-1">
+              {{ selectedFood.description }}
+            </p>
 
-        <div v-else-if="!loading && filteredFoods.length === 0 && hasSearched" class="text-gray-500">
-          Keine Ergebnisse gefunden. Versuch es doch mal mit Englischen Lebensmitteln!
-        </div>
+            <div class="mt-4 flex items-center gap-2">
+              <label class="text-sm text-gray-600">Portion (g):</label>
+              <input
+                v-model="portion"
+                type="number"
+                min="1"
+                class="w-24 px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-500"
+              />
+            </div>
 
-        <div v-else class="space-y-3">
-          <button
-            v-for="food in filteredFoods"
-            :key="String(food.id)"
-            type="button"
-            @click="selectedId = food.id"
-            class="w-full text-left p-4 rounded-lg border transition-all"
-            :class="selectedId === food.id ? 'border-cyan-500 bg-cyan-50' : 'border-gray-200 hover:border-gray-300 bg-white'"
-          >
-            <div class="flex items-start justify-between mb-2">
-              <div>
-                <div class="text-gray-900 mb-1 flex items-center gap-2">
-                  {{ food.name }}
-                  <Star
-                    v-if="food.isFavorite"
-                    class="w-4 h-4 text-yellow-500 fill-yellow-500"
-                  />
+            <div class="mt-5 space-y-3">
+              <div class="text-sm text-gray-700">
+                <div class="flex justify-between">
+                  <span>Kalorien</span>
+                  <span class="font-medium">{{ scaled(selectedFood.calories) }} kcal</span>
                 </div>
-                <div class="text-gray-500 text-sm">{{ food.description || "—" }}</div>
               </div>
-              <div class="text-gray-900 whitespace-nowrap">
-                {{ num(food.calories) }} kcal
+
+              <div class="text-sm text-gray-700">
+                <div class="flex justify-between">
+                  <span>Kohlenhydrate</span>
+                  <span class="font-medium">{{ scaled(selectedFood.carbs) }} g</span>
+                </div>
+                <div class="h-2 bg-gray-100 rounded mt-1 overflow-hidden">
+                  <div class="h-full bg-cyan-500" :style="{ width: barPct(scaled(selectedFood.carbs)) }"></div>
+                </div>
+              </div>
+
+              <div class="text-sm text-gray-700">
+                <div class="flex justify-between">
+                  <span>Protein</span>
+                  <span class="font-medium">{{ scaled(selectedFood.protein) }} g</span>
+                </div>
+                <div class="h-2 bg-gray-100 rounded mt-1 overflow-hidden">
+                  <div class="h-full bg-cyan-500" :style="{ width: barPct(scaled(selectedFood.protein)) }"></div>
+                </div>
+              </div>
+
+              <div class="text-sm text-gray-700">
+                <div class="flex justify-between">
+                  <span>Fett</span>
+                  <span class="font-medium">{{ scaled(selectedFood.fat) }} g</span>
+                </div>
+                <div class="h-2 bg-gray-100 rounded mt-1 overflow-hidden">
+                  <div class="h-full bg-cyan-500" :style="{ width: barPct(scaled(selectedFood.fat)) }"></div>
+                </div>
               </div>
             </div>
 
-            <div class="flex gap-2 mt-3">
-              <div class="flex-1">
-                <div class="h-1.5 bg-amber-200 rounded-full overflow-hidden">
-                  <div class="h-full bg-amber-500" :style="{ width: barPct(food.carbs) }" />
-                </div>
-                <div class="text-xs text-gray-500 mt-1">K: {{ num(food.carbs) }}g</div>
-              </div>
+            <div class="mt-6 flex gap-2">
+              <button
+                type="button"
+                class="px-4 py-2 rounded-lg border border-gray-200 hover:bg-gray-50"
+                @click="emit('preview', selectedFood)"
+              >
+                Vorschau
+              </button>
 
-              <div class="flex-1">
-                <div class="h-1.5 bg-red-200 rounded-full overflow-hidden">
-                  <div class="h-full bg-red-500" :style="{ width: barPct(food.fat) }" />
-                </div>
-                <div class="text-xs text-gray-500 mt-1">F: {{ num(food.fat) }}g</div>
-              </div>
+              <button
+                type="button"
+                class="px-4 py-2 rounded-lg bg-cyan-600 text-white hover:bg-cyan-700"
+                @click="emit('import', selectedFood)"
+              >
+                In DB importieren
+              </button>
 
-              <div class="flex-1">
-                <div class="h-1.5 bg-blue-200 rounded-full overflow-hidden">
-                  <div class="h-full bg-blue-500" :style="{ width: barPct(food.protein) }" />
-                </div>
-                <div class="text-xs text-gray-500 mt-1">P: {{ num(food.protein) }}g</div>
-              </div>
+              <button
+                type="button"
+                class="ml-auto px-4 py-2 rounded-lg bg-gray-900 text-white hover:bg-black"
+                @click="emit('add', { item: selectedFood, grams: Number(portion) || 100 })"
+              >
+                Hinzufügen
+              </button>
             </div>
-
-
-          </button>
+          </div>
         </div>
-      </div>
-
-      <div v-if="selectedFood" class="p-6 border-t border-gray-200 bg-gray-50">
-        <div class="mb-4">
-          <label class="block text-gray-700 text-sm mb-2">Menge (g)</label>
-          <input
-            type="number"
-            v-model="portion"
-            class="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-500"
-          />
-        </div>
-
-        <button
-          type="button"
-          @click="emit('add', { item: selectedFood.raw ?? selectedFood, portion: Number(portion || 0), mealType })"
-          class="w-full px-4 py-3 bg-cyan-600 text-white rounded-lg hover:bg-cyan-700 transition-colors"
-        >
-          Zu {{ mealLabels[mealType] || mealType }} hinzufügen
-        </button>
-      </div>
-
-      <div v-if="hasSearched" class="px-6 py-4 border-t border-gray-100 flex items-center justify-between text-sm text-gray-600">
-        <button
-          type="button"
-          class="px-3 py-2 rounded-lg border border-gray-200 hover:bg-gray-50 disabled:opacity-60"
-          :disabled="loading || page <= 1"
-          @click="emit('search', page - 1)"
-        >
-          ← Zurück
-        </button>
-        <span>Seite {{ page }}</span>
-        <button
-          type="button"
-          class="px-3 py-2 rounded-lg border border-gray-200 hover:bg-gray-50 disabled:opacity-60"
-          :disabled="loading"
-          @click="emit('search', page + 1)"
-        >
-          Weiter →
-        </button>
       </div>
     </div>
   </div>
@@ -188,11 +233,12 @@ export type FoodSearchItem = {
   fat?: number | null;
   protein?: number | null;
   isFavorite?: boolean;
+  isRecent?: boolean;
   raw?: any;
 };
 
 const props = defineProps<{
-  mealType: string;
+  mealType: "breakfast" | "lunch" | "dinner" | "snacks";
   query: string;
   results: FoodSearchItem[];
   loading: boolean;
@@ -204,9 +250,9 @@ const props = defineProps<{
 const emit = defineEmits<{
   (e: "close"): void;
   (e: "search", page: number): void;
-  (e: "import", item: any): void;
-  (e: "preview", item: any): void;
-  (e: "add", payload: { item: any; portion: number; mealType: string }): void;
+  (e: "import", item: FoodSearchItem): void;
+  (e: "preview", item: FoodSearchItem): void;
+  (e: "add", payload: { item: FoodSearchItem; grams: number }): void;
   (e: "update:query", value: string): void;
 }>();
 
@@ -227,12 +273,22 @@ function onQueryInput(e: Event) {
 
 const filteredFoods = computed(() => {
   const q = props.query?.toLowerCase().trim() ?? "";
-  return (props.results ?? []).filter((food) => {
-    const matchesSearch = !q || (food.name ?? "").toLowerCase().includes(q);
+  const list = props.results ?? [];
+
+  // FatSecret / externe Quellen liefern i.d.R. keine isFavorite/isRecent Flags.
+  // Damit die Filter-Buttons nicht „zufällig“ alles leeren, verhalten sie sich
+  // wie "Alle", solange es keine entsprechenden Flags gibt.
+  const anyFavorite = list.some((f: any) => !!f?.isFavorite);
+  const anyRecent = list.some((f: any) => !!f?.isRecent);
+
+  return list.filter((food: any) => {
+    const matchesSearch = !q || String(food.name ?? "").toLowerCase().includes(q);
+
     const matchesFilter =
       filter.value === "all" ||
-      (filter.value === "favorites" && !!food.isFavorite) ||
-      (filter.value === "recent" && !!food.isFavorite);
+      (filter.value === "favorites" && (!anyFavorite || !!food.isFavorite)) ||
+      (filter.value === "recent" && (!anyRecent || !!food.isRecent));
+
     return matchesSearch && matchesFilter;
   });
 });
@@ -245,6 +301,11 @@ const selectedFood = computed(() => {
 function num(v: any) {
   const n = Number(v);
   return Number.isFinite(n) ? n : 0;
+}
+
+function scaled(v: any) {
+  const grams = Math.max(1, Number(portion.value) || 100);
+  return Math.round(num(v) * (grams / 100) * 10) / 10;
 }
 
 function barPct(v: any) {

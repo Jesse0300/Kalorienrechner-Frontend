@@ -7,7 +7,7 @@ export interface RegisterRequest {
 }
 
 export interface LoginRequest {
-  login: string; // username ODER email
+  login: string;
   password: string;
 }
 
@@ -17,6 +17,8 @@ export interface AuthResponse {
   email: string;
   token: string;
 }
+
+const TOKEN_KEY = "jwt";
 
 export async function register(data: RegisterRequest): Promise<AuthResponse> {
   const res = await api.post<AuthResponse>("/auth/register", data);
@@ -31,18 +33,25 @@ export async function login(data: LoginRequest): Promise<AuthResponse> {
 }
 
 export function saveToken(token: string) {
-  localStorage.setItem("jwt", token);
+  localStorage.setItem(TOKEN_KEY, token);
 }
 
 export function getToken(): string | null {
-  return localStorage.getItem("jwt");
+  return localStorage.getItem(TOKEN_KEY);
 }
 
+/** ✅ einheitlicher Name für App.vue */
+export function clearToken() {
+  localStorage.removeItem(TOKEN_KEY);
+}
+
+/** Alias (optional, falls du logout() woanders nutzt) */
 export function logout() {
-  localStorage.removeItem("jwt");
+  clearToken();
 }
 
-/** JWT Payload lesen (ohne extra Library) */
+/* ================= JWT Utils ================= */
+
 function parseJwt(token: string): any | null {
   try {
     const base64Url = token.split(".")[1];
@@ -60,10 +69,14 @@ function parseJwt(token: string): any | null {
   }
 }
 
-/** Username/Email aus Token holen (nimmt was vorhanden ist) */
+/**
+ * Username/Email aus JWT
+ * → komplett user-basiert, refresh-sicher
+ */
 export function getCurrentUserLabel(): string | null {
   const token = getToken();
   if (!token) return null;
+
   const payload = parseJwt(token);
   if (!payload) return null;
 

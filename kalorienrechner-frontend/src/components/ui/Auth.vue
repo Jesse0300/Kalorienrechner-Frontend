@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { reactive, ref } from "vue";
 import { Mail, Lock, User, Eye, EyeOff } from "lucide-vue-next";
-import { login, register } from "../service/auth";
+import { login, register } from "@/service/auth";
 
 const emit = defineEmits<{
   (e: "auth-success"): void;
@@ -29,10 +29,8 @@ async function handleSubmit(e: Event) {
 
   try {
     if (isLogin.value) {
-      // LoginRequest: login = username ODER email
       await login({ login: formData.email.trim(), password: formData.password });
     } else {
-      // RegisterRequest: username, email, password
       await register({
         username: formData.name.trim(),
         email: formData.email.trim(),

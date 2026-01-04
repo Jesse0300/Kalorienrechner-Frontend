@@ -19,11 +19,11 @@
 import { computed, ref } from "vue";
 import FoodSearch from "./ui/FoodSearch.vue";
 import { api } from "../service/api";
-import type { FoodSearchItem } from "../types/FoodSearchTypes";
+import type { FoodSearchItem, MealType } from "../types/FoodSearchTypes";
 import { toBackendMealType, todayLocalISO } from "../types/mealsBackend";
 
 const props = defineProps<{
-  mealType: string; // "breakfast" | "lunch" | "dinner" | "snacks"
+  mealType: MealType; // ✅ war string
 }>();
 
 const emit = defineEmits<{
@@ -142,7 +142,7 @@ async function importToDb(item: any): Promise<number> {
   }
 }
 
-async function onAddFromModal(payload: { item: any; portion: number; mealType: string }) {
+async function onAddFromModal(payload: { item: any; portion: number; mealType: MealType }) {
   try {
     // 1) Food in DB speichern -> liefert DB-ID
     const foodId = await importToDb(payload.item);

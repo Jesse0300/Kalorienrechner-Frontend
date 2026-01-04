@@ -9,130 +9,195 @@
       <CalorieOverview
         :targetCalories="userGoalData?.targetCalories"
         :userGoalData="userGoalData"
+        :consumedCalories="totalConsumed"
       />
     </div>
 
-    <div class="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 mb-6">
+    <div class="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
       <h2 class="text-gray-900 mb-4">Heutige Mahlzeiten</h2>
 
-      <div class="space-y-4">
-        <div>
-          <div class="flex items-center justify-between mb-2">
-            <h3 class="text-gray-700">Frühstück</h3>
-            <button
-              @click="emit('add-food', 'breakfast')"
-              class="flex items-center gap-1 text-cyan-600 hover:text-cyan-700 transition-colors"
-            >
-              <span class="text-lg">＋</span>
-              <span class="text-sm">Hinzufügen</span>
-            </button>
+      <!-- Frühstück -->
+      <section class="mb-6">
+        <div class="flex items-center justify-between">
+          <div>
+            <h3 class="text-gray-900">Frühstück</h3>
+            <p class="text-gray-500 text-sm">
+              {{ mealConsumed("BREAKFAST") }} / {{ mealTargets.breakfast }} kcal
+            </p>
           </div>
-          <p class="text-gray-500 text-sm">
-            0 / {{ mealCalories.breakfast }} kcal
-          </p>
+          <button
+            class="px-4 py-2 rounded-xl bg-cyan-600 text-white hover:bg-cyan-700 transition"
+            @click="emit('add-food', 'breakfast')"
+          >
+            Hinzufügen
+          </button>
         </div>
 
-        <div class="border-t border-gray-100 pt-4">
-          <div class="flex items-center justify-between mb-2">
-            <h3 class="text-gray-700">Mittagessen</h3>
-            <button
-              @click="emit('add-food', 'lunch')"
-              class="flex items-center gap-1 text-cyan-600 hover:text-cyan-700 transition-colors"
-            >
-              <span class="text-lg">＋</span>
-              <span class="text-sm">Hinzufügen</span>
-            </button>
+        <ul v-if="mealItems('BREAKFAST').length" class="mt-3 space-y-2">
+          <li
+            v-for="it in mealItems('BREAKFAST')"
+            :key="it.id"
+            class="flex items-center justify-between rounded-xl border border-gray-100 p-3"
+          >
+            <div class="min-w-0">
+              <p class="text-gray-900 text-sm truncate">{{ it.foodName }}</p>
+              <p class="text-gray-500 text-xs">{{ it.amountGrams }} g</p>
+            </div>
+            <div class="text-gray-900 text-sm whitespace-nowrap">
+              {{ Math.round(it.calories) }} kcal
+            </div>
+          </li>
+        </ul>
+        <p v-else class="mt-3 text-gray-400 text-sm">Noch nichts hinzugefügt.</p>
+      </section>
+
+      <!-- Mittag -->
+      <section class="mb-6">
+        <div class="flex items-center justify-between">
+          <div>
+            <h3 class="text-gray-900">Mittagessen</h3>
+            <p class="text-gray-500 text-sm">
+              {{ mealConsumed("LUNCH") }} / {{ mealTargets.lunch }} kcal
+            </p>
           </div>
-          <p class="text-gray-500 text-sm">
-            0 / {{ mealCalories.lunch }} kcal
-          </p>
+          <button
+            class="px-4 py-2 rounded-xl bg-cyan-600 text-white hover:bg-cyan-700 transition"
+            @click="emit('add-food', 'lunch')"
+          >
+            Hinzufügen
+          </button>
         </div>
 
-        <div class="border-t border-gray-100 pt-4">
-          <div class="flex items-center justify-between mb-2">
-            <h3 class="text-gray-700">Abendessen</h3>
-            <button
-              @click="emit('add-food', 'dinner')"
-              class="flex items-center gap-1 text-cyan-600 hover:text-cyan-700 transition-colors"
-            >
-              <span class="text-lg">＋</span>
-              <span class="text-sm">Hinzufügen</span>
-            </button>
+        <ul v-if="mealItems('LUNCH').length" class="mt-3 space-y-2">
+          <li
+            v-for="it in mealItems('LUNCH')"
+            :key="it.id"
+            class="flex items-center justify-between rounded-xl border border-gray-100 p-3"
+          >
+            <div class="min-w-0">
+              <p class="text-gray-900 text-sm truncate">{{ it.foodName }}</p>
+              <p class="text-gray-500 text-xs">{{ it.amountGrams }} g</p>
+            </div>
+            <div class="text-gray-900 text-sm whitespace-nowrap">
+              {{ Math.round(it.calories) }} kcal
+            </div>
+          </li>
+        </ul>
+        <p v-else class="mt-3 text-gray-400 text-sm">Noch nichts hinzugefügt.</p>
+      </section>
+
+      <!-- Abend -->
+      <section class="mb-6">
+        <div class="flex items-center justify-between">
+          <div>
+            <h3 class="text-gray-900">Abendessen</h3>
+            <p class="text-gray-500 text-sm">
+              {{ mealConsumed("DINNER") }} / {{ mealTargets.dinner }} kcal
+            </p>
           </div>
-          <p class="text-gray-500 text-sm">
-            0 / {{ mealCalories.dinner }} kcal
-          </p>
+          <button
+            class="px-4 py-2 rounded-xl bg-cyan-600 text-white hover:bg-cyan-700 transition"
+            @click="emit('add-food', 'dinner')"
+          >
+            Hinzufügen
+          </button>
         </div>
 
-        <div class="border-t border-gray-100 pt-4">
-          <div class="flex items-center justify-between mb-2">
-            <h3 class="text-gray-700">Snacks</h3>
-            <button
-              @click="emit('add-food', 'snacks')"
-              class="flex items-center gap-1 text-cyan-600 hover:text-cyan-700 transition-colors"
-            >
-              <span class="text-lg">＋</span>
-              <span class="text-sm">Hinzufügen</span>
-            </button>
+        <ul v-if="mealItems('DINNER').length" class="mt-3 space-y-2">
+          <li
+            v-for="it in mealItems('DINNER')"
+            :key="it.id"
+            class="flex items-center justify-between rounded-xl border border-gray-100 p-3"
+          >
+            <div class="min-w-0">
+              <p class="text-gray-900 text-sm truncate">{{ it.foodName }}</p>
+              <p class="text-gray-500 text-xs">{{ it.amountGrams }} g</p>
+            </div>
+            <div class="text-gray-900 text-sm whitespace-nowrap">
+              {{ Math.round(it.calories) }} kcal
+            </div>
+          </li>
+        </ul>
+        <p v-else class="mt-3 text-gray-400 text-sm">Noch nichts hinzugefügt.</p>
+      </section>
+
+      <!-- Snacks -->
+      <section>
+        <div class="flex items-center justify-between">
+          <div>
+            <h3 class="text-gray-900">Snacks</h3>
+            <p class="text-gray-500 text-sm">
+              {{ mealConsumed("SNACK") }} / {{ mealTargets.snacks }} kcal
+            </p>
           </div>
-          <p class="text-gray-500 text-sm">
-            0 / {{ mealCalories.snacks }} kcal
-          </p>
+          <button
+            class="px-4 py-2 rounded-xl bg-cyan-600 text-white hover:bg-cyan-700 transition"
+            @click="emit('add-food', 'snacks')"
+          >
+            Hinzufügen
+          </button>
         </div>
-      </div>
+
+        <ul v-if="mealItems('SNACK').length" class="mt-3 space-y-2">
+          <li
+            v-for="it in mealItems('SNACK')"
+            :key="it.id"
+            class="flex items-center justify-between rounded-xl border border-gray-100 p-3"
+          >
+            <div class="min-w-0">
+              <p class="text-gray-900 text-sm truncate">{{ it.foodName }}</p>
+              <p class="text-gray-500 text-xs">{{ it.amountGrams }} g</p>
+            </div>
+            <div class="text-gray-900 text-sm whitespace-nowrap">
+              {{ Math.round(it.calories) }} kcal
+            </div>
+          </li>
+        </ul>
+        <p v-else class="mt-3 text-gray-400 text-sm">Noch nichts hinzugefügt.</p>
+      </section>
     </div>
-
-    <StreakCard />
   </div>
 </template>
 
 <script setup lang="ts">
 import { computed } from "vue";
-import type { UserGoalData } from "../../types/goals.ts"; // Mmt. ungenutzt
 import CalorieOverview from "./CalorieOverview.vue";
-import StreakCard from "./StreakCard.vue";
-
-type MealType = "breakfast" | "lunch" | "dinner" | "snacks";
+import type { UserGoalData } from "../../types/goals";
+import type { MealsDayDTO, BackendMealType } from "../../types/mealsBackend";
 
 const props = defineProps<{
   userGoalData: UserGoalData | null;
+  mealsDay: MealsDayDTO | null;
 }>();
 
 const emit = defineEmits<{
-  (e: "add-food", mealType: MealType): void;
+  (e: "add-food", mealType: "breakfast" | "lunch" | "dinner" | "snacks"): void;
 }>();
 
-const today = new Date();
+const formattedDate = computed(() => {
+  const d = new Date();
+  return d.toLocaleDateString("de-DE", { weekday: "long", year: "numeric", month: "long", day: "numeric" });
+});
 
-const formattedDate = computed(() =>
-  new Intl.DateTimeFormat("de-DE", {
-    weekday: "short",
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-  }).format(today)
-);
+const totalConsumed = computed(() => Math.round(Number(props.mealsDay?.totalCalories ?? 0)));
 
-const targetCalories = computed(
-  () => props.userGoalData?.targetCalories ?? 2000
-);
+function mealItems(key: BackendMealType) {
+  return props.mealsDay?.meals?.[key]?.items ?? [];
+}
 
-const mealCalories = computed(() => ({
-  breakfast: Math.round(targetCalories.value * 0.25),
-  lunch: Math.round(targetCalories.value * 0.35),
-  dinner: Math.round(targetCalories.value * 0.3),
-  snacks: Math.round(targetCalories.value * 0.1),
-}));
+function mealConsumed(key: BackendMealType) {
+  const v = props.mealsDay?.meals?.[key]?.totalCalories ?? 0;
+  return Math.round(Number(v) || 0);
+}
 
-const mealCaloriesValue = mealCalories;
-</script>
-
-<script lang="ts">
-export default {
-  computed: {
-    mealCalories() {
-      return (this as any).mealCaloriesValue;
-    },
-  },
-};
+// Zielaufteilung (wie in deinem bisherigen Ansatz)
+const mealTargets = computed(() => {
+  const target = props.userGoalData?.targetCalories ?? 2000;
+  return {
+    breakfast: Math.round(target * 0.25),
+    lunch: Math.round(target * 0.3),
+    dinner: Math.round(target * 0.35),
+    snacks: Math.round(target * 0.1),
+  };
+});
 </script>

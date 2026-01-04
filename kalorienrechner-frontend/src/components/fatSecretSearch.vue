@@ -17,142 +17,154 @@
 
 <script setup lang="ts">
 import { computed, ref } from "vue";
-import axios from "axios";
 import FoodSearch from "./ui/FoodSearch.vue";
+import { api } from "../service/api";
+import type { FoodSearchItem } from "../types/FoodSearchTypes";
+import { toBackendMealType, todayLocalISO } from "../types/mealsBackend";
 
 const props = defineProps<{
-  mealType: MealType;
+  mealType: string; // "breakfast" | "lunch" | "dinner" | "snacks"
 }>();
 
 const emit = defineEmits<{
   (e: "close"): void;
+  (e: "added"): void; // signalisiert App.vue: bitte Tagesdaten neu laden
 }>();
 
-const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:8080";
-
 const q = ref("");
-const page = ref(1);
+const page = ref(0);
 const size = 10;
 
-const results = ref<any[]>([]);
 const loading = ref(false);
 const error = ref("");
 const hasSearched = ref(false);
+
+const rawFoods = ref<any[]>([]);
 const importingId = ref<string | number | null>(null);
 
-function toArray<T>(x: T | T[] | undefined): T[] {
-  if (!x) return [];
-  return Array.isArray(x) ? x : [x];
-}
+function parseDescription(desc: string | undefined | null) {
+  const s = String(desc ?? "");
 
-function parseDescription(desc: string | undefined) {
-  const s = desc ?? "";
-  const num = (m: RegExpMatchArray | null): number | null =>
-    m?.[1] ? Number(m[1].replace(",", ".")) : null;
+  // typische FatSecret-Patterns: "Calories: 120kcal | Fat: 4g | Carbs: 18g | Protein: 3g"
+  const calories = matchNumber(s, /Calories:\s*([\d.,]+)/i);
+  const fat = matchNumber(s, /Fat:\s*([\d.,]+)/i);
+  const carbs = matchNumber(s, /Carbs:\s*([\d.,]+)/i);
+  const protein = matchNumber(s, /Protein:\s*([\d.,]+)/i);
 
   return {
-    calories: num(s.match(/Calories:\s*([\d.,]+)/i)),
-    carbs: num(s.match(/Carbs:\s*([\d.,]+)/i)),
-    protein: num(s.match(/Protein:\s*([\d.,]+)/i)),
-    fat: num(s.match(/Fat:\s*([\d.,]+)/i)),
+    calories,
+    fat,
+    carbs,
+    protein,
   };
 }
 
-async function runSearch(targetPage = 1) {
-  if (!q.value.trim()) return;
+function matchNumber(text: string, re: RegExp): number {
+  const m = text.match(re);
+  if (!m?.[1]) return 0;
+  const v = Number(String(m[1]).replace(",", "."));
+  return Number.isFinite(v) ? v : 0;
+}
+
+const uiResults = computed<FoodSearchItem[]>(() => {
+  return rawFoods.value.map((it: any) => {
+    const parsed = parseDescription(it?.food_description);
+    return {
+      id: it?.food_id ?? it?.food_name ?? Math.random(),
+      name: it?.food_name ?? "Unbekannt",
+      description: it?.food_description ?? "",
+      calories: parsed.calories,
+      carbs: parsed.carbs,
+      fat: parsed.fat,
+      protein: parsed.protein,
+      raw: it,
+    };
+  });
+});
+
+async function runSearch(newPage: number) {
+  const query = q.value.trim();
+  if (!query) return;
+
   loading.value = true;
-  hasSearched.value = true;
   error.value = "";
-  page.value = targetPage;
+  hasSearched.value = true;
+  page.value = newPage;
 
   try {
-    const res = await axios.get(`${API_BASE}/api/fatsecret/search`, {
-      params: { q: q.value.trim(), page: page.value, size },
+    // Backend: GET /api/fatsecret/search?q=...&page=...&size=...
+    const res = await api.get("/fatsecret/search", {
+      params: { q: query, page: page.value, size },
     });
 
-    if (res.data?.error?.message) throw new Error(res.data.error.message);
+    // FatSecret API Response ist meist: { foods: { food: [...] } }
+    const foodsNode = res.data?.foods;
+    const list = foodsNode?.food;
 
-    // Obj oder Arr
-    const foods = res.data?.foods?.food ?? res.data?.foods ?? [];
-    results.value = toArray<any>(foods);
-  } catch (e: any) {
-    const msg =
-      e?.response?.data?.error?.message ??
-      e?.response?.statusText ??
-      e?.message ??
-      "Unbekannter Fehler";
-    error.value = `Fehler: ${msg}`;
-    results.value = [];
-  } finally {
-    loading.value = false;
-  }
-}
-
-function preview(item: any) {
-  const parsed = parseDescription(item?.food_description);
-  alert(
-    `${item?.food_name ?? "—"}\n\n${item?.food_description ?? "—"}\n\n` +
-    `→ Für 100 g erkannt:\n` +
-    `kcal: ${parsed.calories ?? "?"}, KH: ${parsed.carbs ?? "?"} g, ` +
-    `Protein: ${parsed.protein ?? "?"} g, Fett: ${parsed.fat ?? "?"} g`
-  );
-}
-
-async function importToDb(item: any) {
-  importingId.value = item?.food_id ?? null;
-
-  const parsed = parseDescription(item?.food_description);
-  const payload = {
-    name: item?.food_name,
-    calories: parsed.calories,
-    carbs: parsed.carbs,
-    protein: parsed.protein,
-    fat: parsed.fat,
-    categoryId: null,
-  };
-
-  try {
-    await axios.post(`${API_BASE}/api/foods`, payload, {
-      headers: { "Content-Type": "application/json" },
-    });
-    alert(`„${item?.food_name ?? "Lebensmittel"}“ wurde gespeichert ✅`);
+    if (Array.isArray(list)) rawFoods.value = list;
+    else if (list && typeof list === "object") rawFoods.value = [list];
+    else rawFoods.value = [];
   } catch (e: any) {
     const msg =
       e?.response?.data?.message ??
       e?.response?.statusText ??
       e?.message ??
       "Unbekannter Fehler";
-    alert(`Speichern fehlgeschlagen: ${msg}`);
+    error.value = msg;
+  } finally {
+    loading.value = false;
+  }
+}
+
+function preview(_item: any) {
+  // optional: du kannst hier später ein Preview-Modal bauen
+}
+
+async function importToDb(item: any): Promise<number> {
+  importingId.value = item?.food_id ?? null;
+
+  const parsed = parseDescription(item?.food_description);
+  const payload = {
+    // FoodController erwartet FoodDTO
+    name: item?.food_name,
+    calories: parsed.calories,
+    protein: parsed.protein,
+    carbs: parsed.carbs,
+    fat: parsed.fat,
+    categoryId: null,
+  };
+
+  try {
+    const res = await api.post("/foods", payload);
+    return Number(res.data?.id);
   } finally {
     importingId.value = null;
   }
 }
 
-import type { FoodSearchItem, MealType } from "@/types/FoodSearchTypes";
+async function onAddFromModal(payload: { item: any; portion: number; mealType: string }) {
+  try {
+    // 1) Food in DB speichern -> liefert DB-ID
+    const foodId = await importToDb(payload.item);
 
-const uiResults = computed<FoodSearchItem[]>(() => {
-  return (results.value ?? []).map((it: any) => {
-    const parsed = parseDescription(it?.food_description);
-    return {
-      id: it?.food_id,
-      name: it?.food_name ?? "—",
-      description: it?.food_description ?? "—",
-      calories: parsed.calories ?? 0,
-      carbs: parsed.carbs ?? 0,
-      fat: parsed.fat ?? 0,
-      protein: parsed.protein ?? 0,
-      isFavorite: false,
-      raw: it,
-    };
-  });
-});
+    // 2) MealItem hinzufügen
+    await api.post("/meals/items", {
+      date: todayLocalISO(),
+      mealType: toBackendMealType(payload.mealType as any),
+      foodId,
+      amountGrams: Number(payload.portion || 0),
+    });
 
-// Mahlzeiten speichern sich momentan nur in DB, zukünftig auch im Dashboard
-// POST / Endpoints Entities in Backend einfügen für Kompatiblität
-function onAddFromModal(payload: { item: any; portion: number; mealType: string }) {
-  importToDb(payload.item);
-  emit("close");
+    // 3) App soll neu laden
+    emit("added");
+    emit("close");
+  } catch (e: any) {
+    const msg =
+      e?.response?.data?.message ??
+      e?.response?.statusText ??
+      e?.message ??
+      "Unbekannter Fehler";
+    alert(`Hinzufügen fehlgeschlagen: ${msg}`);
+  }
 }
-
-
 </script>

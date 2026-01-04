@@ -1,5 +1,9 @@
 <template>
-  <div class="min-h-screen bg-gray-50">
+  <!-- Wenn nicht eingeloggt: immer Auth anzeigen -->
+  <Auth v-if="!isAuthenticated" @auth-success="handleAuthSuccess" />
+
+  <!-- Wenn eingeloggt: normale App -->
+  <div v-else class="min-h-screen bg-gray-50">
     <Sidebar
       :current-view="currentView"
       :user-goal-data="userGoalData"
@@ -10,7 +14,6 @@
       <Dashboard
         v-if="currentView === 'dashboard'"
         :user-goal-data="userGoalData"
-        :meals-day="mealsDay"
         @add-food="handleAddFood"
       />
 
@@ -18,8 +21,7 @@
 
       <WeightGoal
         v-else-if="currentView === 'weight-goal'"
-        :user-goal-data="userGoalData"
-        @update="handleGoalUpdate"
+        @goal-update="handleGoalUpdate"
       />
 
       <Settings v-else-if="currentView === 'settings'" />
@@ -29,13 +31,16 @@
       v-if="showFoodSearch"
       :meal-type="selectedMealType"
       @close="showFoodSearch = false"
-      @added="loadMeals"
     />
   </div>
 </template>
 
 <script setup lang="ts">
-import { onMounted, ref } from "vue";
+import { onMounted, onUnmounted, ref } from "vue";
+import type { UserGoalData } from "./types/goals";
+import { getToken, logout } from "./service/auth";
+
+import Auth from "./components/Auth.vue";
 import Sidebar from "./components/ui/Sidebar.vue";
 import Dashboard from "./components/ui/Dashboard.vue";
 import Statistics from "./components/ui/Statistics.vue";
@@ -43,21 +48,36 @@ import WeightGoal from "./components/ui/WeightGoal.vue";
 import Settings from "./components/ui/Settings.vue";
 import FatSecretSearch from "./components/fatSecretSearch.vue";
 
-import type { MealType } from "./types/FoodSearchTypes";
-import type { UserGoalData } from "./types/goals";
-import type { MealsDayDTO } from "./types/mealsBackend";
-import { todayLocalISO } from "./types/mealsBackend";
-import { getMealsDay } from "./service/mealsApi";
-
 type View = "dashboard" | "statistics" | "weight-goal" | "settings";
+type MealType = "breakfast" | "lunch" | "dinner" | "snacks";
 
 const currentView = ref<View>("dashboard");
 const showFoodSearch = ref(false);
 const selectedMealType = ref<MealType>("breakfast");
 const userGoalData = ref<UserGoalData | null>(null);
 
-// Tagesdaten vom Backend: /api/meals/day
-const mealsDay = ref<MealsDayDTO | null>(null);
+// Auth Gate
+const isAuthenticated = ref(!!getToken());
+
+function handleAuthSuccess() {
+  isAuthenticated.value = true;
+}
+
+// Wird vom api.ts Response-Interceptor bei 401 ausgelöst
+function handleAuthLogoutEvent() {
+  logout();
+  isAuthenticated.value = false;
+  currentView.value = "dashboard";
+  showFoodSearch.value = false;
+}
+
+onMounted(() => {
+  window.addEventListener("auth-logout", handleAuthLogoutEvent);
+});
+
+onUnmounted(() => {
+  window.removeEventListener("auth-logout", handleAuthLogoutEvent);
+});
 
 function handleNavigate(view: View) {
   currentView.value = view;
@@ -71,12 +91,4 @@ function handleAddFood(mealType: MealType) {
 function handleGoalUpdate(data: UserGoalData) {
   userGoalData.value = data;
 }
-
-async function loadMeals() {
-  mealsDay.value = await getMealsDay(todayLocalISO());
-}
-
-onMounted(() => {
-  loadMeals();
-});
 </script>

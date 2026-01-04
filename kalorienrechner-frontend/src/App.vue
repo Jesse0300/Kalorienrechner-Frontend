@@ -1,9 +1,5 @@
 <template>
-  <!-- Wenn nicht eingeloggt: immer Auth anzeigen -->
-  <Auth v-if="!isAuthenticated" @auth-success="handleAuthSuccess" />
-
-  <!-- Wenn eingeloggt: normale App -->
-  <div v-else class="min-h-screen bg-gray-50">
+  <div class="min-h-screen bg-gray-50">
     <Sidebar
       :current-view="currentView"
       :user-goal-data="userGoalData"
@@ -14,6 +10,7 @@
       <Dashboard
         v-if="currentView === 'dashboard'"
         :user-goal-data="userGoalData"
+        :meals-day="mealsDay"
         @add-food="handleAddFood"
       />
 
@@ -36,11 +33,11 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, onUnmounted, ref } from "vue";
+import { onMounted, ref } from "vue";
 import type { UserGoalData } from "./types/goals";
-import { getToken, logout } from "./service/auth";
+import type { MealsDayDTO } from "./types/meals";
+import { api } from "./service/api";
 
-import Auth from "./components/ui/Auth.vue";
 import Sidebar from "./components/ui/Sidebar.vue";
 import Dashboard from "./components/ui/Dashboard.vue";
 import Statistics from "./components/ui/Statistics.vue";
@@ -48,36 +45,38 @@ import WeightGoal from "./components/ui/WeightGoal.vue";
 import Settings from "./components/ui/Settings.vue";
 import FatSecretSearch from "./components/fatSecretSearch.vue";
 
-
 type View = "dashboard" | "statistics" | "weight-goal" | "settings";
 type MealType = "breakfast" | "lunch" | "dinner" | "snacks";
 
 const currentView = ref<View>("dashboard");
 const showFoodSearch = ref(false);
 const selectedMealType = ref<MealType>("breakfast");
+
 const userGoalData = ref<UserGoalData | null>(null);
 
-// Auth Gate
-const isAuthenticated = ref(!!getToken());
+// NEU: muss an Dashboard übergeben werden
+const mealsDay = ref<MealsDayDTO | null>(null);
 
-function handleAuthSuccess() {
-  isAuthenticated.value = true;
+function isoDate(d: Date) {
+  // YYYY-MM-DD
+  return d.toISOString().slice(0, 10);
 }
 
-// Wird vom api.ts Response-Interceptor bei 401 ausgelöst
-function handleAuthLogoutEvent() {
-  logout();
-  isAuthenticated.value = false;
-  currentView.value = "dashboard";
-  showFoodSearch.value = false;
+async function loadMealsForToday() {
+  try {
+    const res = await api.get<MealsDayDTO>("/meals/day", {
+      params: { date: isoDate(new Date()) },
+    });
+    mealsDay.value = res.data;
+  } catch {
+    // Falls Backend (noch) nicht erreichbar oder Endpoint nicht fertig:
+    mealsDay.value = null;
+  }
 }
 
 onMounted(() => {
-  window.addEventListener("auth-logout", handleAuthLogoutEvent);
-});
-
-onUnmounted(() => {
-  window.removeEventListener("auth-logout", handleAuthLogoutEvent);
+  // Wenn du das (noch) nicht willst, kannst du diese Zeile auch erstmal auskommentieren.
+  loadMealsForToday();
 });
 
 function handleNavigate(view: View) {

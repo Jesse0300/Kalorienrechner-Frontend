@@ -28,7 +28,7 @@
 </template>
 
 <script setup lang="ts">
-import { logout } from "../../service/auth";
+import { logout } from "@/service/auth.ts";
 
 function handleLogout() {
   logout();

@@ -39,7 +39,7 @@
 <script setup lang="ts">
 import { onMounted, onUnmounted, ref } from "vue";
 import type { UserGoalData } from "./types/goals";
-import type { MealsDayDTO } from "./types/meals";
+import type { MealsDayDTO } from "./types/mealsBackend";
 import { api } from "./service/api";
 import { getToken, getCurrentUserLabel, clearToken } from "./service/auth";
 

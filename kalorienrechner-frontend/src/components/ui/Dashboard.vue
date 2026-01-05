@@ -159,8 +159,8 @@
 <script setup lang="ts">
 import { computed } from "vue";
 import CalorieOverview from "./CalorieOverview.vue";
-import type { UserGoalData } from "../../types/goals";
-import type { MealsDayDTO, BackendMealType } from "../../types/mealsBackend";
+import type { UserGoalData } from "@/types/goals.ts";
+import type { MealsDayDTO, BackendMealType } from "@/types/mealsBackend.ts";
 
 const props = defineProps<{
   userGoalData: UserGoalData | null;

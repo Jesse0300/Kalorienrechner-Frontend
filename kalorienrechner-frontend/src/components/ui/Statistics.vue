@@ -84,9 +84,9 @@
 
 <script setup lang="ts">
 import { computed, onMounted, ref } from "vue";
-import { api } from "../../service/api";
-import type { MealsDayDTO } from "../../types/meals";
-import type { UserGoalData } from "../../types/goals";
+import { api } from "@/service/api.ts";
+import type { MealsDayDTO } from "@/types/mealsBackend";
+import type { UserGoalData } from "@/types/goals.ts";
 
 type DayRow = { date: string; calories: number };
 

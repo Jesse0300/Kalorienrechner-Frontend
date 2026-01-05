@@ -175,7 +175,7 @@
 <script setup lang="ts">
 import { computed, ref } from "vue";
 import { X, Search, Star, Clock } from "lucide-vue-next";
-import type { MealType } from "../../types/FoodSearchTypes";
+import type { MealType } from "@/types/FoodSearchTypes.ts";
 
 type Filter = "all" | "favorites" | "recent";
 

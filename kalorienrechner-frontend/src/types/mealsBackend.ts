@@ -7,6 +7,9 @@ export type MealItemDTO = {
   foodName: string;
   amountGrams: number;
   calories: number;
+  carbs: number;
+  fat: number;
+  protein: number;
 };
 
 export type MealSummaryDTO = {

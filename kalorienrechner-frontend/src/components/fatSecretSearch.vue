@@ -52,9 +52,9 @@ function matchNumber(text: string, re: RegExp): number {
 function parseDescription(desc: string | undefined | null) {
   const s = String(desc ?? "");
   const calories = matchNumber(s, /Calories:\s*([\d.,]+)/i);
-  const fat = matchNumber(s, /Fat:\s*([\d.,]+)/i);
-  const carbs = matchNumber(s, /Carbs:\s*([\d.,]+)/i);
-  const protein = matchNumber(s, /Protein:\s*([\d.,]+)/i);
+  const fat = matchNumber(s, /(?:Total\s*)?Fat:\s*([\d.,]+)/i);
+  const carbs = matchNumber(s, /(?:Total\s*)?(?:Carbs?|Carbohydrates?):\s*([\d.,]+)/i);
+  const protein = matchNumber(s, /(?:Protein|Proteins):\s*([\d.,]+)/i);
 
   return { calories, fat, carbs, protein };
 }

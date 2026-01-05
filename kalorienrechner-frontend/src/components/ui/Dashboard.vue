@@ -10,13 +10,13 @@
         :targetCalories="userGoalData?.targetCalories"
         :userGoalData="userGoalData"
         :consumedCalories="totalConsumed"
+        :mealsDay="mealsDay"
       />
     </div>
 
     <div class="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
       <h2 class="text-gray-900 mb-4">Heutige Mahlzeiten</h2>
 
-      <!-- Frühstück -->
       <section class="mb-6">
         <div class="flex items-center justify-between">
           <div>
@@ -51,7 +51,6 @@
         <p v-else class="mt-3 text-gray-400 text-sm">Noch nichts hinzugefügt.</p>
       </section>
 
-      <!-- Mittag -->
       <section class="mb-6">
         <div class="flex items-center justify-between">
           <div>
@@ -86,7 +85,6 @@
         <p v-else class="mt-3 text-gray-400 text-sm">Noch nichts hinzugefügt.</p>
       </section>
 
-      <!-- Abend -->
       <section class="mb-6">
         <div class="flex items-center justify-between">
           <div>
@@ -121,7 +119,6 @@
         <p v-else class="mt-3 text-gray-400 text-sm">Noch nichts hinzugefügt.</p>
       </section>
 
-      <!-- Snacks -->
       <section>
         <div class="flex items-center justify-between">
           <div>
@@ -190,7 +187,6 @@ function mealConsumed(key: BackendMealType) {
   return Math.round(Number(v) || 0);
 }
 
-// Zielaufteilung (wie in deinem bisherigen Ansatz)
 const mealTargets = computed(() => {
   const target = props.userGoalData?.targetCalories ?? 2000;
   return {

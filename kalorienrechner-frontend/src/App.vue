@@ -107,7 +107,6 @@ function handleGoalUpdate(data: UserGoalData) {
   userGoalData.value = data;
 }
 
-/** nach Add Tagesdaten neu laden */
 async function handleFoodAdded() {
   await loadMealsForToday();
   showFoodSearch.value = false;

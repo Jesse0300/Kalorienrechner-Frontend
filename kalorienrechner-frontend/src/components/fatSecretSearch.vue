@@ -22,13 +22,13 @@ import { api } from "../service/api";
 import type { FoodSearchItem, MealType } from "../types/FoodSearchTypes";
 import { toBackendMealType, todayLocalISO } from "../types/mealsBackend";
 
-defineProps<{
+const props = defineProps<{
   mealType: MealType;
 }>();
 
 const emit = defineEmits<{
   (e: "close"): void;
-  (e: "added"): void; // ✅ wichtig: signalisiert App.vue -> neu laden
+  (e: "added"): void; // App/Dashboard kann danach reloaden
 }>();
 
 const q = ref("");
@@ -42,6 +42,8 @@ const hasSearched = ref(false);
 const rawFoods = ref<any[]>([]);
 const importingId = ref<string | number | null>(null);
 
+const mealType = computed(() => props.mealType);
+
 function matchNumber(text: string, re: RegExp): number {
   const m = text.match(re);
   if (!m?.[1]) return 0;
@@ -49,24 +51,53 @@ function matchNumber(text: string, re: RegExp): number {
   return Number.isFinite(v) ? v : 0;
 }
 
-function parseMacros(desc: string) {
-  const calories = matchNumber(desc, /Calories:\s*([\d.,]+)/i);
-  const fat = matchNumber(desc, /Fat:\s*([\d.,]+)\s*g/i);
-  const carbs = matchNumber(desc, /Carbs:\s*([\d.,]+)\s*g/i);
-  const protein = matchNumber(desc, /Protein:\s*([\d.,]+)\s*g/i);
+function parseDescription(desc: string) {
+  const s = String(desc ?? "");
+
+  // FatSecret liefert oft: "Per 1 serving - Calories: 95kcal | Fat: 0.3g | Carbs: 25.1g | Protein: 0.5g"
+  const calories = matchNumber(s, /Calories:\s*([\d.,]+)/i);
+  const fat = matchNumber(s, /Fat:\s*([\d.,]+)\s*g/i);
+  const carbs = matchNumber(s, /Carbs:\s*([\d.,]+)\s*g/i);
+  const protein = matchNumber(s, /Protein:\s*([\d.,]+)\s*g/i);
+
   return { calories, fat, carbs, protein };
 }
 
-const uiResults = computed<FoodSearchItem[]>(() => {
-  const list = rawFoods.value ?? [];
-  return list.map((it: any) => {
-    const desc = String(it?.food_description ?? "");
-    const parsed = parseMacros(desc);
+/**
+ * ✅ Robust: akzeptiert mehrere Backend-Response-Formate
+ */
+function extractFoods(data: any): any[] {
+  if (Array.isArray(data)) return data;
+  if (Array.isArray(data?.foods)) return data.foods;
 
+  // FatSecret typisch: { foods: { food: [...] } } oder { foods: { food: {...} } }
+  const node = data?.foods?.food ?? data?.foods;
+  if (Array.isArray(node)) return node;
+  if (node && typeof node === "object" && node.food_name) return [node];
+
+  if (Array.isArray(data?.food)) return data.food;
+  if (data?.food && typeof data.food === "object") return [data.food];
+
+  return [];
+}
+
+function extractBackendError(data: any): string | null {
+  const msg =
+    data?.message ??
+    data?.error?.message ??
+    data?.error ??
+    data?.errors?.[0]?.message ??
+    null;
+  return msg ? String(msg) : null;
+}
+
+const uiResults = computed<FoodSearchItem[]>(() => {
+  return (rawFoods.value ?? []).map((it: any) => {
+    const parsed = parseDescription(it?.food_description);
     return {
-      id: it?.food_id ?? it?.id ?? it?.name,
-      name: it?.food_name ?? it?.name ?? "Unbekannt",
-      description: desc,
+      id: it?.food_id ?? it?.food_name ?? Math.random(),
+      name: it?.food_name ?? "Unbekannt",
+      description: it?.food_description ?? "",
       calories: parsed.calories,
       carbs: parsed.carbs,
       fat: parsed.fat,
@@ -76,46 +107,9 @@ const uiResults = computed<FoodSearchItem[]>(() => {
   });
 });
 
-/**
- * ✅ Robust: akzeptiert mehrere Backend-Response-Formate
- */
-function extractFoods(data: any): any[] {
-  // Backend kann direkt Array liefern
-  if (Array.isArray(data)) return data;
-
-  // { foods: [...] }
-  if (Array.isArray(data?.foods)) return data.foods;
-
-  // FatSecret typisch: { foods: { food: [...] } } oder { foods: { food: {...} } }
-  const node = data?.foods?.food ?? data?.foods;
-  if (Array.isArray(node)) return node;
-  if (node && typeof node === "object" && node.food && Array.isArray(node.food)) return node.food;
-  if (node && typeof node === "object" && !Array.isArray(node) && node.food_name) return [node];
-
-  // fallback: { food: [...] }
-  if (Array.isArray(data?.food)) return data.food;
-  if (data?.food && typeof data.food === "object") return [data.food];
-
-  return [];
-}
-
-function extractBackendError(data: any): string | null {
-  // mögliche Formate:
-  // { error: "..."} | { message: "..."} | { error: { message: "..." } }
-  const msg =
-    data?.message ??
-    data?.error?.message ??
-    data?.error ??
-    data?.errors?.[0]?.message ??
-    null;
-
-  return msg ? String(msg) : null;
-}
-
 async function runSearch(newPage: number) {
   const query = q.value.trim();
 
-  // Leere Suche: state resetten
   if (!query) {
     rawFoods.value = [];
     hasSearched.value = false;
@@ -131,14 +125,9 @@ async function runSearch(newPage: number) {
 
   try {
     const res = await api.get("/fatsecret/search", {
-      params: {
-        q: query,
-        page: page.value,
-        size,
-      },
+      params: { q: query, page: page.value, size },
     });
 
-    // Falls Backend zwar 200 liefert, aber Fehlerobjekt zurückgibt
     const backendErr = extractBackendError(res.data);
     if (backendErr) {
       error.value = backendErr;
@@ -147,7 +136,6 @@ async function runSearch(newPage: number) {
     }
 
     rawFoods.value = extractFoods(res.data);
-    // wenn leer -> UI zeigt "Nichts gefunden" (error bleibt leer)
   } catch (e: any) {
     const msg =
       e?.response?.data?.message ??
@@ -156,7 +144,6 @@ async function runSearch(newPage: number) {
       e?.response?.statusText ??
       e?.message ??
       "Unbekannter Fehler";
-
     error.value = String(msg);
     rawFoods.value = [];
   } finally {
@@ -164,71 +151,52 @@ async function runSearch(newPage: number) {
   }
 }
 
-/**
- * Importiert einen FatSecret Treffer in die eigene DB
- * (falls du das Backend dafür hast – sonst bleibt es harmless)
- */
-async function importToDb(item: FoodSearchItem) {
-  const id = item?.raw?.food_id ?? item?.id;
-  if (!id) return;
+function preview(_item: any) {
+  // optional – UI bleibt unverändert
+}
 
-  importingId.value = id;
+/**
+ * Importiert einen Treffer in die eigene Foods-Tabelle und gibt die neue Food-ID zurück.
+ */
+async function importToDb(item: any): Promise<number> {
+  importingId.value = item?.food_id ?? null;
+
+  const parsed = parseDescription(item?.food_description);
+  const payload = {
+    name: item?.food_name,
+    calories: parsed.calories,
+    protein: parsed.protein,
+    carbs: parsed.carbs,
+    fat: parsed.fat,
+    categoryId: null,
+  };
 
   try {
-    // optional: falls du irgendwann ein Backend-Import-Endpoint hast
-    // await api.post("/fatsecret/import", { foodId: id });
-
-    // aktuell: wir speichern nur lokal in unserer Food Tabelle
-    // du hast FoodCreateDTO -> wir nehmen Name+Macros
-    await api.post("/foods", {
-      name: item.name,
-      calories: item.calories ?? 0,
-      carbs: item.carbs ?? 0,
-      fat: item.fat ?? 0,
-      protein: item.protein ?? 0,
-    });
-
-    emit("added");
-  } catch (e: any) {
-    const msg =
-      e?.response?.data?.message ??
-      e?.response?.data?.error ??
-      e?.response?.statusText ??
-      e?.message ??
-      "Unbekannter Fehler";
-    error.value = `Import fehlgeschlagen: ${msg}`;
+    const res = await api.post("/foods", payload);
+    return Number(res.data?.id);
   } finally {
     importingId.value = null;
   }
 }
 
-function preview(_item: FoodSearchItem) {
-  // UI handled preview (Modal etc.) – nichts am Layout ändern
-}
-
-async function onAddFromModal(item: FoodSearchItem) {
+/**
+ * ✅ FoodSearch.vue erwartet:
+ * payload: { item: any; portion: number; mealType: MealType }
+ */
+async function onAddFromModal(payload: { item: any; portion: number; mealType: MealType }) {
   try {
-    // ✅ AddMealItemRequest: mealType + date + foodId ODER name/macros (je nach Backend)
-    // Wir nehmen hier den sicheren Weg: erst Food in DB, dann MealItem hinzufügen.
-    const createFoodRes = await api.post("/foods", {
-      name: item.name,
-      calories: item.calories ?? 0,
-      carbs: item.carbs ?? 0,
-      fat: item.fat ?? 0,
-      protein: item.protein ?? 0,
-    });
+    // 1) Food in DB erstellen (oder aus importToDb holen)
+    const foodId = await importToDb(payload.item);
 
-    const foodId = createFoodRes?.data?.id;
-    if (!foodId) throw new Error("Food konnte nicht erstellt werden (id fehlt).");
-
-    await api.post("/meals/add-item", {
-      foodId,
-      mealType: toBackendMealType(item.mealType),
+    // 2) MealItem hinzufügen (Backend: POST /api/meals/items, fields: date, mealType, foodId, amountGrams)
+    await api.post("/meals/items", {
       date: todayLocalISO(),
-      quantity: 1,
+      mealType: toBackendMealType(payload.mealType),
+      foodId,
+      amountGrams: Number(payload.portion) > 0 ? Number(payload.portion) : 100, // fallback
     });
 
-    // ✅ wichtig: App soll neu laden
+    // 3) wichtig: App soll neu laden + Modal schließen
     emit("added");
     emit("close");
   } catch (e: any) {

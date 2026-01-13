@@ -48,8 +48,8 @@ import { getToken, getCurrentUserLabel, clearToken } from "./service/auth";
 import Auth from "./components/ui/Auth.vue";
 import Sidebar from "./components/ui/Sidebar.vue";
 import Dashboard from "./components/ui/Dashboard.vue";
-import Statistics from "./components/ui/Statistics.vue";
-import WeightGoal from "./components/ui/WeightGoal.vue";
+import Statistics from "@/views/Statistics.vue";
+import WeightGoal from "@/views/WeightGoal.vue";
 import Settings from "./components/ui/Settings.vue";
 import FatSecretSearch from "./components/fatSecretSearch.vue";
 

@@ -77,9 +77,39 @@ const uiResults = computed<FoodSearchItem[]>(() => {
   });
 });
 
+/**
+ * ✅ Robust: akzeptiert mehrere Backend-Response-Formate
+ */
+function extractFoods(data: any): any[] {
+  // 1) direkt Array
+  if (Array.isArray(data)) return data;
+
+  // 2) { foods: [...] }
+  if (Array.isArray(data?.foods)) return data.foods;
+
+  // 3) FatSecret-typisch: { foods: { food: [...] } } oder { foods: { food: {..} } }
+  const node = data?.foods?.food ?? data?.foods;
+  if (Array.isArray(node)) return node;
+  if (node && typeof node === "object") return [node];
+
+  // 4) fallback: { food: [...] }
+  if (Array.isArray(data?.food)) return data.food;
+  if (data?.food && typeof data.food === "object") return [data.food];
+
+  return [];
+}
+
 async function runSearch(newPage: number) {
   const query = q.value.trim();
-  if (!query) return;
+
+  // Leere Suche: state resetten (damit UI nicht "nichts gefunden" spamt)
+  if (!query) {
+    rawFoods.value = [];
+    hasSearched.value = false;
+    error.value = "";
+    page.value = 0;
+    return;
+  }
 
   loading.value = true;
   error.value = "";
@@ -88,22 +118,29 @@ async function runSearch(newPage: number) {
 
   try {
     const res = await api.get("/fatsecret/search", {
-      params: { q: query, page: page.value, size },
+      params: {
+        // ✅ wichtig: viele Backends erwarten query statt q
+        q: query,
+        query: query,
+        // paging
+        page: page.value,
+        size,
+      },
     });
 
-    const foodsNode = res.data?.foods;
-    const list = foodsNode?.food;
+    rawFoods.value = extractFoods(res.data);
 
-    if (Array.isArray(list)) rawFoods.value = list;
-    else if (list && typeof list === "object") rawFoods.value = [list];
-    else rawFoods.value = [];
+    // Optional: wenn wirklich nichts kommt, aber kein Fehler
+    // lassen wir error leer und UI zeigt "Nichts gefunden"
   } catch (e: any) {
     const msg =
       e?.response?.data?.message ??
+      e?.response?.data?.error ??
       e?.response?.statusText ??
       e?.message ??
       "Unbekannter Fehler";
     error.value = msg;
+    rawFoods.value = [];
   } finally {
     loading.value = false;
   }
@@ -153,6 +190,7 @@ async function onAddFromModal(payload: { item: any; portion: number; mealType: M
   } catch (e: any) {
     const msg =
       e?.response?.data?.message ??
+      e?.response?.data?.error ??
       e?.response?.statusText ??
       e?.message ??
       "Unbekannter Fehler";

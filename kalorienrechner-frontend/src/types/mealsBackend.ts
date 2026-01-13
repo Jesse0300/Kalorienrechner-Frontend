@@ -7,6 +7,8 @@ export type MealItemDTO = {
   foodName: string;
   amountGrams: number;
   calories: number;
+
+  // ✅ NEU: Makros (kommen jetzt vom Backend pro Item, bereits auf Gramm umgerechnet)
   carbs: number;
   fat: number;
   protein: number;
@@ -18,7 +20,7 @@ export type MealSummaryDTO = {
 };
 
 export type MealsDayDTO = {
-  date: string; // "YYYY-MM-DD" oder ISO vom Backend (LocalDate)
+  date: string; // "YYYY-MM-DD" (LocalDate)
   totalCalories: number;
   meals: Partial<Record<BackendMealType, MealSummaryDTO>>;
 };

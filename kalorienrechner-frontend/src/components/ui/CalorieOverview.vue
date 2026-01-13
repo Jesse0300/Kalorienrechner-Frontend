@@ -87,6 +87,7 @@ const props = defineProps<{
   userGoalData?: UserGoalData | null;
   consumedCalories?: number;
 
+  // ✅ Wichtig: muss vom Dashboard kommen
   mealsDay?: MealsDayDTO | null;
 }>();
 
@@ -96,11 +97,6 @@ const target = computed(() =>
 
 const consumed = computed(() => Math.round(Number(props.consumedCalories ?? 0)));
 const remaining = computed(() => Math.max(0, target.value - consumed.value));
-
-const percent = computed(() => {
-  if (target.value <= 0) return 0;
-  return Math.min(999, Math.round((consumed.value / target.value) * 100));
-});
 
 const macroTargets = computed(() => ({
   carbs: Math.round(props.userGoalData?.macros?.carbs ?? 250),
@@ -117,9 +113,9 @@ const macroConsumed = computed(() => {
   for (const summary of Object.values(meals)) {
     const items = summary?.items ?? [];
     for (const item of items) {
-      carbs += Number((item as any).carbs ?? 0);
-      fat += Number((item as any).fat ?? 0);
-      protein += Number((item as any).protein ?? 0);
+      carbs += Number(item.carbs ?? 0);
+      fat += Number(item.fat ?? 0);
+      protein += Number(item.protein ?? 0);
     }
   }
 

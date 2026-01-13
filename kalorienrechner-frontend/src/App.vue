@@ -4,7 +4,9 @@ import Sidebar from "@/components/ui/Sidebar.vue";
 import Dashboard from "@/components/ui/Dashboard.vue";
 import Statistics from "@/views/Statistics.vue";
 import WeightGoal from "@/views/WeightGoal.vue";
-import FoodSearchModal from "@/components/ui/FoodSearchModal.vue";
+
+import FoodSearch from "@/components/ui/FoodSearch.vue";
+
 import { api } from "@/service/api";
 
 type View = "dashboard" | "statistics" | "weight-goal";
@@ -93,7 +95,8 @@ onMounted(async () => {
       <WeightGoal v-else-if="currentView === 'weight-goal'" />
     </main>
 
-    <FoodSearchModal
+    <!-- ✅ WICHTIG: FoodSearch.vue statt FoodSearchModal.vue -->
+    <FoodSearch
       v-if="showFoodSearch"
       :meal-type="selectedMealType"
       @close="showFoodSearch = false"

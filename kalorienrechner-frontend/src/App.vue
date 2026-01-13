@@ -1,41 +1,96 @@
+<template>
+  <Auth v-if="!isAuthed" @auth-success="onAuthSuccess" />
+
+  <div v-else class="min-h-screen bg-gray-50">
+    <Sidebar
+      :current-view="currentView"
+      :user-goal-data="userGoalData"
+      :current-user-label="currentUserLabel"
+      @navigate="handleNavigate"
+    />
+
+    <main class="ml-64 px-8 py-8">
+      <Dashboard
+        v-if="currentView === 'dashboard'"
+        :user-goal-data="userGoalData"
+        :meals-day="mealsDay"
+        @add-food="handleAddFood"
+        @delete-meal-item="handleDeleteMealItem"
+      />
+
+      <Statistics v-else-if="currentView === 'statistics'" />
+
+      <WeightGoal
+        v-else-if="currentView === 'weight-goal'"
+        @goal-update="handleGoalUpdate"
+      />
+
+      <Settings v-else-if="currentView === 'settings'" />
+    </main>
+
+    <!-- ✅ Wichtig: DEIN funktionierender Wrapper -->
+    <FatSecretSearch
+      v-if="showFoodSearch"
+      :mealType="selectedMealType"
+      @close="showFoodSearch = false"
+      @added="handleFoodAdded"
+    />
+  </div>
+</template>
+
 <script setup lang="ts">
-import { computed, onMounted, ref } from "vue";
-import Sidebar from "@/components/ui/Sidebar.vue";
-import Dashboard from "@/components/ui/Dashboard.vue";
-import Statistics from "@/views/Statistics.vue";
-import WeightGoal from "@/views/WeightGoal.vue";
+import { onMounted, onUnmounted, ref } from "vue";
+import type { UserGoalData } from "./types/goals";
+import type { MealsDayDTO } from "./types/meals";
+import { api } from "./service/api";
+import { getToken, getCurrentUserLabel, clearToken } from "./service/auth";
 
-import FoodSearch from "@/components/ui/FoodSearch.vue";
+import Auth from "./components/ui/Auth.vue";
+import Sidebar from "./components/ui/Sidebar.vue";
+import Dashboard from "./components/ui/Dashboard.vue";
+import Statistics from "./components/ui/Statistics.vue";
+import WeightGoal from "./components/ui/WeightGoal.vue";
+import Settings from "./components/ui/Settings.vue";
+import FatSecretSearch from "./components/fatSecretSearch.vue";
 
-import { api } from "@/service/api";
-
-type View = "dashboard" | "statistics" | "weight-goal";
+type View = "dashboard" | "statistics" | "weight-goal" | "settings";
 type MealType = "breakfast" | "lunch" | "dinner" | "snacks";
 
-const currentView = ref<View>("dashboard");
+const isAuthed = ref(!!getToken());
+const currentUserLabel = ref<string | null>(getCurrentUserLabel());
 
+const currentView = ref<View>("dashboard");
 const showFoodSearch = ref(false);
 const selectedMealType = ref<MealType>("breakfast");
 
-const userGoalData = ref<any | null>(null);
-const mealsDay = ref<any | null>(null);
+const userGoalData = ref<UserGoalData | null>(null);
+const mealsDay = ref<MealsDayDTO | null>(null);
 
-const isAuthed = computed(() => !!localStorage.getItem("jwt"));
+function onAuthSuccess() {
+  isAuthed.value = true;
+  currentUserLabel.value = getCurrentUserLabel();
+  currentView.value = "dashboard";
+  loadMealsForToday();
+}
 
-async function loadGoal() {
-  try {
-    const { data } = await api.get("/goals/me");
-    userGoalData.value = data;
-  } catch {
-    userGoalData.value = null;
-  }
+function onAuthLogout() {
+  clearToken();
+  isAuthed.value = false;
+  currentUserLabel.value = null;
+  showFoodSearch.value = false;
+  currentView.value = "dashboard";
+}
+
+function isoDate(d: Date) {
+  return d.toISOString().slice(0, 10);
 }
 
 async function loadMealsForToday() {
   try {
-    const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
-    const { data } = await api.get(`/meals/day?date=${today}`);
-    mealsDay.value = data;
+    const res = await api.get<MealsDayDTO>("/meals/day", {
+      params: { date: isoDate(new Date()) },
+    });
+    mealsDay.value = res.data;
   } catch {
     mealsDay.value = null;
   }
@@ -50,6 +105,17 @@ function handleAddFood(mealType: MealType) {
   showFoodSearch.value = true;
 }
 
+function handleGoalUpdate(data: UserGoalData) {
+  userGoalData.value = data;
+}
+
+/** nach Add Tagesdaten neu laden */
+async function handleFoodAdded() {
+  await loadMealsForToday();
+  showFoodSearch.value = false;
+}
+
+/** ✅ NEU: MealItem löschen */
 async function handleDeleteMealItem(id: number) {
   try {
     await api.delete(`/meals/items/${id}`);
@@ -64,43 +130,16 @@ async function handleDeleteMealItem(id: number) {
   }
 }
 
-function handleFoodAdded() {
-  showFoodSearch.value = false;
-  loadMealsForToday();
-}
+onMounted(() => {
+  isAuthed.value = !!getToken();
+  currentUserLabel.value = getCurrentUserLabel();
 
-onMounted(async () => {
-  if (isAuthed.value) {
-    await loadGoal();
-    await loadMealsForToday();
-  }
+  window.addEventListener("auth-logout", onAuthLogout);
+
+  if (isAuthed.value) loadMealsForToday();
+});
+
+onUnmounted(() => {
+  window.removeEventListener("auth-logout", onAuthLogout);
 });
 </script>
-
-<template>
-  <div class="min-h-screen bg-gray-50">
-    <Sidebar v-if="isAuthed" @navigate="handleNavigate" />
-
-    <main class="ml-64 px-8 py-8">
-      <Dashboard
-        v-if="currentView === 'dashboard'"
-        :user-goal-data="userGoalData"
-        :meals-day="mealsDay"
-        @add-food="handleAddFood"
-        @delete-meal-item="handleDeleteMealItem"
-      />
-
-      <Statistics v-else-if="currentView === 'statistics'" />
-
-      <WeightGoal v-else-if="currentView === 'weight-goal'" />
-    </main>
-
-    <!-- ✅ WICHTIG: FoodSearch.vue statt FoodSearchModal.vue -->
-    <FoodSearch
-      v-if="showFoodSearch"
-      :meal-type="selectedMealType"
-      @close="showFoodSearch = false"
-      @added="handleFoodAdded"
-    />
-  </div>
-</template>

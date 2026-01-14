@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { reactive, ref } from "vue";
+import { computed, reactive, ref } from "vue";
 import { Mail, Lock, User, Eye, EyeOff } from "lucide-vue-next";
 import { login, register } from "@/service/auth";
 
@@ -22,9 +22,54 @@ function resetError() {
   errorMsg.value = "";
 }
 
+/** ✅ Additiv: Simple Email Regex (frontend-only) */
+const emailOk = computed(() => {
+  const v = formData.email.trim();
+  // bewusst simpel: reicht als UX-Check, Backend bleibt Quelle der Wahrheit
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v);
+});
+
+const passwordOk = computed(() => {
+  const v = formData.password ?? "";
+  return v.length >= 6;
+});
+
+const nameOk = computed(() => {
+  if (isLogin.value) return true;
+  const v = formData.name.trim();
+  return v.length >= 3;
+});
+
+const canSubmit = computed(() => {
+  if (loading.value) return false;
+  if (!emailOk.value) return false;
+  if (!passwordOk.value) return false;
+  if (!nameOk.value) return false;
+  return true;
+});
+
+const validationHint = computed(() => {
+  if (isLogin.value) {
+    if (!emailOk.value) return "Bitte gib eine gültige E-Mail ein.";
+    if (!passwordOk.value) return "Passwort muss mindestens 6 Zeichen haben.";
+    return "";
+  }
+  if (!nameOk.value) return "Name muss mindestens 3 Zeichen haben.";
+  if (!emailOk.value) return "Bitte gib eine gültige E-Mail ein.";
+  if (!passwordOk.value) return "Passwort muss mindestens 6 Zeichen haben.";
+  return "";
+});
+
 async function handleSubmit(e: Event) {
   e.preventDefault();
   resetError();
+
+  // ✅ Additiv: Frontend-Check – verhindert unnötige Requests
+  if (!canSubmit.value) {
+    errorMsg.value = validationHint.value || "Bitte Eingaben prüfen.";
+    return;
+  }
+
   loading.value = true;
 
   try {
@@ -100,6 +145,11 @@ async function handleSubmit(e: Event) {
                 required
               />
             </div>
+
+            <!-- ✅ Additiv: Hint -->
+            <p v-if="!nameOk" class="mt-2 text-xs text-red-600">
+              Name muss mindestens 3 Zeichen haben.
+            </p>
           </div>
 
           <div>
@@ -114,6 +164,11 @@ async function handleSubmit(e: Event) {
                 required
               />
             </div>
+
+            <!-- ✅ Additiv: Hint -->
+            <p v-if="formData.email.trim().length > 0 && !emailOk" class="mt-2 text-xs text-red-600">
+              Bitte gib eine gültige E-Mail-Adresse ein.
+            </p>
           </div>
 
           <div>
@@ -136,7 +191,17 @@ async function handleSubmit(e: Event) {
                 <Eye v-else class="w-5 h-5" />
               </button>
             </div>
+
+            <!-- ✅ Additiv: Hint -->
+            <p v-if="formData.password.length > 0 && !passwordOk" class="mt-2 text-xs text-red-600">
+              Passwort muss mindestens 6 Zeichen haben.
+            </p>
           </div>
+
+          <!-- ✅ Additiv: allgemeiner Hinweis, wenn disabled -->
+          <p v-if="!canSubmit && !errorMsg && validationHint" class="text-xs text-gray-600">
+            {{ validationHint }}
+          </p>
 
           <div v-if="errorMsg" class="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
             {{ errorMsg }}
@@ -144,7 +209,7 @@ async function handleSubmit(e: Event) {
 
           <button
             type="submit"
-            :disabled="loading"
+            :disabled="loading || !canSubmit"
             class="w-full py-3 bg-gradient-to-r from-cyan-500 to-cyan-600 text-white rounded-lg hover:from-cyan-600 hover:to-cyan-700 transition-all shadow-lg shadow-cyan-500/30 disabled:opacity-60"
           >
             {{ loading ? "Bitte warten..." : (isLogin ? "Anmelden" : "Konto erstellen") }}

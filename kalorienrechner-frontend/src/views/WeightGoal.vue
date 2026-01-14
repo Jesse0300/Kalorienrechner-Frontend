@@ -69,14 +69,16 @@
           <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label class="block text-gray-700 mb-2">Kalorienziel (kcal)</label>
+              <!-- ✅ Kalorien werden automatisch aus Makros berechnet -->
               <input
                 type="number"
-                v-model="manualCalories"
-                min="0"
-                step="1"
-                placeholder="2300"
-                class="w-full px-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent bg-white"
+                :value="manualCaloriesComputed"
+                readonly
+                class="w-full px-4 py-3 border border-gray-200 rounded-lg bg-gray-100 text-gray-700 cursor-not-allowed focus:outline-none"
               />
+              <p class="text-xs text-gray-600 mt-2">
+                Wird automatisch berechnet: Protein/Carbs 4 kcal/g, Fett 9 kcal/g
+              </p>
             </div>
 
             <div class="grid grid-cols-3 gap-3">
@@ -116,9 +118,7 @@
             </div>
           </div>
 
-          <p class="text-xs text-gray-600 mt-3">
-            Tipp: Makros in Gramm sind direkt. (Protein/Carbs 4 kcal pro g, Fett 9 kcal pro g)
-          </p>
+          <p v-if="manualError" class="text-sm text-red-600 mt-3">{{ manualError }}</p>
         </div>
       </div>
 
@@ -200,34 +200,10 @@ const goalOptions: Array<{
   description: string;
   macroRatio: { protein: number; carbs: number; fat: number };
 }> = [
-  {
-    id: "lose",
-    label: "Abnehmen",
-    multiplier: 0.8,
-    description: "Moderates Kaloriendefizit",
-    macroRatio: { protein: 0.3, carbs: 0.35, fat: 0.35 },
-  },
-  {
-    id: "maintain",
-    label: "Gewicht halten",
-    multiplier: 1.0,
-    description: "Erhaltungskalorien",
-    macroRatio: { protein: 0.2, carbs: 0.45, fat: 0.35 },
-  },
-  {
-    id: "gain",
-    label: "Gewicht zunehmen",
-    multiplier: 1.2,
-    description: "Kalorienüberschuss",
-    macroRatio: { protein: 0.15, carbs: 0.55, fat: 0.3 },
-  },
-  {
-    id: "muscle",
-    label: "Muskel aufbauen",
-    multiplier: 1.15,
-    description: "Moderater Kalorienüberschuss mit Fokus auf Protein",
-    macroRatio: { protein: 0.25, carbs: 0.45, fat: 0.3 },
-  },
+  { id: "lose", label: "Abnehmen", multiplier: 0.8, description: "Moderates Kaloriendefizit", macroRatio: { protein: 0.3, carbs: 0.35, fat: 0.35 } },
+  { id: "maintain", label: "Gewicht halten", multiplier: 1.0, description: "Erhaltungskalorien", macroRatio: { protein: 0.2, carbs: 0.45, fat: 0.35 } },
+  { id: "gain", label: "Gewicht zunehmen", multiplier: 1.2, description: "Kalorienüberschuss", macroRatio: { protein: 0.15, carbs: 0.55, fat: 0.3 } },
+  { id: "muscle", label: "Muskel aufbauen", multiplier: 1.15, description: "Moderater Kalorienüberschuss mit Fokus auf Protein", macroRatio: { protein: 0.25, carbs: 0.45, fat: 0.3 } },
 ];
 
 const emit = defineEmits<{
@@ -240,36 +216,44 @@ const calculatedCalories = ref<number | null>(null);
 
 /** ✅ Additiv: manuelle Werte */
 const manualEnabled = ref<boolean>(false);
-const manualCalories = ref<string>("");
 const manualProtein = ref<string>("");
 const manualCarbs = ref<string>("");
 const manualFat = ref<string>("");
 
-/** ✅ Damit Makro-Anzeige im Ergebnis immer korrekt ist */
+/** ✅ Anzeige / Ergebnis */
 const lastEmittedMacros = ref<{ protein: number; carbs: number; fat: number }>({
-  protein: 0,
-  carbs: 0,
-  fat: 0,
+  protein: 0, carbs: 0, fat: 0,
 });
 
-const isManualValid = computed(() => {
-  const c = Number(manualCalories.value);
-  const p = Number(manualProtein.value);
-  const cb = Number(manualCarbs.value);
-  const f = Number(manualFat.value);
+function n(v: string): number {
+  const x = Number(v);
+  return Number.isFinite(x) ? x : 0;
+}
 
-  return (
-    Number.isFinite(c) && c > 0 &&
-    Number.isFinite(p) && p >= 0 &&
-    Number.isFinite(cb) && cb >= 0 &&
-    Number.isFinite(f) && f >= 0
-  );
+/** ✅ Kalorien automatisch aus Makros */
+const manualCaloriesComputed = computed(() => {
+  const p = n(manualProtein.value);
+  const c = n(manualCarbs.value);
+  const f = n(manualFat.value);
+  const kcal = p * 4 + c * 4 + f * 9;
+  return Math.round(kcal);
 });
+
+const manualError = computed(() => {
+  const p = n(manualProtein.value);
+  const c = n(manualCarbs.value);
+  const f = n(manualFat.value);
+  if (p < 0 || c < 0 || f < 0) return "Makros dürfen nicht negativ sein.";
+  if (p === 0 && c === 0 && f === 0) return "Bitte mindestens ein Makro > 0 eingeben.";
+  if (manualCaloriesComputed.value <= 0) return "Kalorien müssen > 0 sein (aus Makros).";
+  return "";
+});
+
+const isManualValid = computed(() => manualError.value === "");
 
 function persistManualSettings() {
   const settings = {
     manualEnabled: manualEnabled.value,
-    manualCalories: manualCalories.value,
     manualProtein: manualProtein.value,
     manualCarbs: manualCarbs.value,
     manualFat: manualFat.value,
@@ -283,7 +267,6 @@ function loadManualSettings() {
     if (!raw) return;
     const s = JSON.parse(raw);
     manualEnabled.value = !!s.manualEnabled;
-    manualCalories.value = String(s.manualCalories ?? "");
     manualProtein.value = String(s.manualProtein ?? "");
     manualCarbs.value = String(s.manualCarbs ?? "");
     manualFat.value = String(s.manualFat ?? "");
@@ -299,14 +282,14 @@ function handleCalculate() {
   const selectedGoal = goalOptions.find((g) => g.id === goal.value);
   if (!selectedGoal) return;
 
-  // ✅ MANUELL: übernimmt exakt die Eingaben
+  // ✅ MANUELL: Kalorien kommen aus Makros
   if (manualEnabled.value) {
     if (!isManualValid.value) return;
 
-    const targetCalories = Math.round(Number(manualCalories.value));
-    const proteinGrams = Math.round(Number(manualProtein.value));
-    const carbsGrams = Math.round(Number(manualCarbs.value));
-    const fatGrams = Math.round(Number(manualFat.value));
+    const targetCalories = manualCaloriesComputed.value;
+    const proteinGrams = Math.round(n(manualProtein.value));
+    const carbsGrams = Math.round(n(manualCarbs.value));
+    const fatGrams = Math.round(n(manualFat.value));
 
     calculatedCalories.value = targetCalories;
     lastEmittedMacros.value = { protein: proteinGrams, carbs: carbsGrams, fat: fatGrams };
@@ -316,22 +299,16 @@ function handleCalculate() {
       goalType: goal.value,
       goalLabel: `${selectedGoal.label} (manuell)`,
       targetCalories,
-      macros: {
-        carbs: carbsGrams,
-        fat: fatGrams,
-        protein: proteinGrams,
-      },
+      macros: { carbs: carbsGrams, fat: fatGrams, protein: proteinGrams },
     };
 
-    // additiv: manuelle Settings merken
     persistManualSettings();
-
     emit("goal-update", payload);
     return;
   }
 
   // ✅ AUTO: bestehende Logik unverändert
-  const base = weightNum * 24; // Grundumsatz
+  const base = weightNum * 24;
   const baseWithActivity = base * 1.4;
   const targetCalories = Math.round(baseWithActivity * selectedGoal.multiplier);
   calculatedCalories.value = targetCalories;
@@ -347,16 +324,10 @@ function handleCalculate() {
     goalType: goal.value,
     goalLabel: selectedGoal.label,
     targetCalories,
-    macros: {
-      carbs: carbsGrams,
-      fat: fatGrams,
-      protein: proteinGrams,
-    },
+    macros: { carbs: carbsGrams, fat: fatGrams, protein: proteinGrams },
   };
 
-  // additiv: manual settings trotzdem speichern (enabled=false)
   persistManualSettings();
-
   emit("goal-update", payload);
 }
 
@@ -366,17 +337,14 @@ const currentGoalDescription = computed(() => currentGoal.value?.description ?? 
 
 const formattedCalories = computed(() => calculatedCalories.value?.toLocaleString("de-DE") ?? 0);
 
-const baseCalories = computed(() => (weight.value ? Math.round(parseFloat(weight.value) * 24) : 0));
+const baseCalories = computed(() =>
+  weight.value ? Math.round(parseFloat(weight.value) * 24) : 0
+);
 const withActivityCalories = computed(() =>
   weight.value ? Math.round(parseFloat(weight.value) * 24 * 1.4) : 0
 );
 
-onMounted(() => {
-  loadManualSettings();
-});
+onMounted(loadManualSettings);
 
-// Wenn manuell toggled oder Werte geändert werden, speichern wir additiv (damit Reload passt)
-watch([manualEnabled, manualCalories, manualProtein, manualCarbs, manualFat], () => {
-  persistManualSettings();
-});
+watch([manualEnabled, manualProtein, manualCarbs, manualFat], persistManualSettings);
 </script>

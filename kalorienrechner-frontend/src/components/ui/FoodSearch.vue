@@ -132,14 +132,22 @@
           <input
             type="number"
             v-model="portion"
+            min="1"
+            step="1"
             class="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-500"
           />
+
+          <!-- ✅ Additiv: Portion Hinweis -->
+          <p v-if="portionError" class="mt-2 text-xs text-red-600">
+            {{ portionError }}
+          </p>
         </div>
 
         <button
           type="button"
-          @click="emit('add', { item: selectedFood.raw ?? selectedFood, portion: Number(portion || 0), mealType })"
-          class="w-full px-4 py-3 bg-cyan-600 text-white rounded-lg hover:bg-cyan-700 transition-colors"
+          @click="emit('add', { item: selectedFood.raw ?? selectedFood, portion: portionNumber, mealType })"
+          class="w-full px-4 py-3 bg-cyan-600 text-white rounded-lg hover:bg-cyan-700 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+          :disabled="!canAdd"
         >
           Zu {{ mealLabels[mealType] || mealType }} hinzufügen
         </button>
@@ -260,4 +268,24 @@ function barPct(v: any) {
   const n = Math.max(0, Math.min(100, num(v)));
   return `${n}%`;
 }
+
+/** ✅ Additiv: Portion Validierung */
+const portionNumber = computed(() => {
+  const v = Number(portion.value);
+  return Number.isFinite(v) ? v : 0;
+});
+
+const portionError = computed(() => {
+  if (!selectedFood.value) return "";
+  if (!Number.isFinite(portionNumber.value)) return "Bitte eine Zahl eingeben.";
+  if (portionNumber.value <= 0) return "Menge muss größer als 0 g sein.";
+  if (portionNumber.value > 5000) return "Menge ist sehr hoch (max. 5000 g).";
+  return "";
+});
+
+const canAdd = computed(() => {
+  if (!selectedFood.value) return false;
+  if (props.loading) return false;
+  return portionError.value === "";
+});
 </script>

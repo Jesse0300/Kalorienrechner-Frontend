@@ -62,7 +62,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from "vue";
+import { computed, toRefs } from "vue";
 import type { UserGoalData } from "@/types/goals.ts";
 
 type View = "dashboard" | "statistics" | "weight-goal" | "settings";
@@ -84,14 +84,17 @@ const navItems: Array<{ id: View; label: string; icon: string }> = [
   { id: "settings", label: "Einstellungen", icon: "⚙️" },
 ];
 
+/**
+ * ✅ FIX: toRefs behält Reaktivität (normales Destructuring nicht)
+ */
+const { currentView, userGoalData, currentUserLabel } = toRefs(props);
+
 const initials = computed(() => {
-  const s = String(props.currentUserLabel ?? "U").trim();
+  const s = String(currentUserLabel.value ?? "U").trim();
   if (!s) return "U";
   const parts = s.split(/[\s._-]+/).filter(Boolean);
   const a = parts[0]?.[0] ?? "U";
   const b = parts[1]?.[0] ?? "";
   return (a + b).toUpperCase();
 });
-
-const { currentView, userGoalData, currentUserLabel } = props;
 </script>

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { reactive, ref } from "vue";
+import { reactive, ref, computed } from "vue";
 import { Mail, Lock, User, Eye, EyeOff } from "lucide-vue-next";
 import { login, register } from "@/service/auth";
 
@@ -18,53 +18,33 @@ const formData = reactive({
   name: "",
 });
 
+const MIN_PASSWORD = 6;
+
 function resetError() {
   errorMsg.value = "";
 }
 
-/**
- * ✅ Macht aus allen möglichen Backend/Network-Fehlern eine sinnvolle Nachricht
- * - String → direkt
- * - Objekt → bevorzugt message/error/detail, sonst JSON stringify
- * - Array/Validation → zusammenfassen
- */
-function extractErrorMessage(err: any): string {
+function normalizeError(err: any): string {
+  // axios error cases
   const data = err?.response?.data;
 
-  // Axios Network-Error / ohne response
-  if (!data) {
-    return (
-      err?.message ??
-      err?.response?.statusText ??
-      "Unbekannter Fehler"
-    );
-  }
-
-  // Backend gibt string zurück
   if (typeof data === "string") return data;
 
-  // Backend gibt Objekt zurück
-  if (typeof data === "object") {
-    // typische Felder
+  if (data && typeof data === "object") {
+    // gängige Felder
     if (typeof data.message === "string") return data.message;
     if (typeof data.error === "string") return data.error;
-    if (typeof data.detail === "string") return data.detail;
 
-    // Bean Validation / Field Errors (häufig: errors: [...])
-    if (Array.isArray((data as any).errors)) {
-      const list = (data as any).errors
-        .map((e: any) => {
-          if (typeof e === "string") return e;
-          if (e?.defaultMessage) return e.defaultMessage;
-          if (e?.message) return e.message;
-          if (e?.field && e?.defaultMessage) return `${e.field}: ${e.defaultMessage}`;
-          return null;
-        })
-        .filter(Boolean);
-      if (list.length > 0) return list.join(" • ");
+    // Spring Validation: { errors: [...] } oder { fieldErrors: ... }
+    const maybeErrors = (data.errors ?? data.fieldErrors ?? data.violations) as any;
+    if (Array.isArray(maybeErrors) && maybeErrors.length > 0) {
+      const first = maybeErrors[0];
+      if (typeof first === "string") return first;
+      if (typeof first?.message === "string") return first.message;
+      if (typeof first?.defaultMessage === "string") return first.defaultMessage;
     }
 
-    // Fallback: Objekt als JSON anzeigen (statt [object Object])
+    // Fallback: JSON statt [object Object]
     try {
       return JSON.stringify(data);
     } catch {
@@ -72,13 +52,40 @@ function extractErrorMessage(err: any): string {
     }
   }
 
-  // alles andere
-  return String(data);
+  if (typeof err?.message === "string") return err.message;
+  return "Unbekannter Fehler";
 }
+
+// ---------- Frontend-Validierung ----------
+const emailValid = computed(() => {
+  const email = formData.email.trim();
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+});
+
+const passwordValid = computed(() => formData.password.length >= MIN_PASSWORD);
+
+const nameValid = computed(() => isLogin.value || formData.name.trim().length > 0);
+
+const canSubmit = computed(() => emailValid.value && passwordValid.value && nameValid.value);
 
 async function handleSubmit(e: Event) {
   e.preventDefault();
   resetError();
+
+  // ✅ Validierung VOR Request (damit Button/Tests/UX korrekt sind)
+  if (!emailValid.value) {
+    errorMsg.value = "Bitte gib eine gültige E-Mail-Adresse ein.";
+    return;
+  }
+  if (!passwordValid.value) {
+    errorMsg.value = `Passwort muss mindestens ${MIN_PASSWORD} Zeichen haben.`;
+    return;
+  }
+  if (!nameValid.value) {
+    errorMsg.value = "Bitte gib deinen Namen ein.";
+    return;
+  }
+
   loading.value = true;
 
   try {
@@ -94,7 +101,7 @@ async function handleSubmit(e: Event) {
 
     emit("auth-success");
   } catch (err: any) {
-    errorMsg.value = extractErrorMessage(err);
+    errorMsg.value = normalizeError(err);
   } finally {
     loading.value = false;
   }
@@ -120,7 +127,10 @@ async function handleSubmit(e: Event) {
         <div class="flex gap-2 mb-6 bg-gray-100 p-1 rounded-lg">
           <button
             type="button"
-            @click="isLogin = true; resetError()"
+            @click="
+              isLogin = true;
+              resetError();
+            "
             class="flex-1 py-2 px-4 rounded-md transition-all"
             :class="isLogin ? 'bg-white text-cyan-700 shadow-sm' : 'text-gray-600 hover:text-gray-900'"
           >
@@ -128,7 +138,10 @@ async function handleSubmit(e: Event) {
           </button>
           <button
             type="button"
-            @click="isLogin = false; resetError()"
+            @click="
+              isLogin = false;
+              resetError();
+            "
             class="flex-1 py-2 px-4 rounded-md transition-all"
             :class="!isLogin ? 'bg-white text-cyan-700 shadow-sm' : 'text-gray-600 hover:text-gray-900'"
           >
@@ -149,6 +162,9 @@ async function handleSubmit(e: Event) {
                 required
               />
             </div>
+            <p v-if="formData.name && !nameValid" class="text-xs text-red-600 mt-1">
+              Bitte gib deinen Namen ein.
+            </p>
           </div>
 
           <div>
@@ -163,6 +179,9 @@ async function handleSubmit(e: Event) {
                 required
               />
             </div>
+            <p v-if="formData.email && !emailValid" class="text-xs text-red-600 mt-1">
+              Bitte eine gültige E-Mail-Adresse eingeben.
+            </p>
           </div>
 
           <div>
@@ -185,18 +204,18 @@ async function handleSubmit(e: Event) {
                 <Eye v-else class="w-5 h-5" />
               </button>
             </div>
+            <p v-if="formData.password && !passwordValid" class="text-xs text-red-600 mt-1">
+              Passwort mindestens {{ MIN_PASSWORD }} Zeichen.
+            </p>
           </div>
 
-          <div
-            v-if="errorMsg"
-            class="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700"
-          >
+          <div v-if="errorMsg" class="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
             {{ errorMsg }}
           </div>
 
           <button
             type="submit"
-            :disabled="loading"
+            :disabled="loading || !canSubmit"
             class="w-full py-3 bg-gradient-to-r from-cyan-500 to-cyan-600 text-white rounded-lg hover:from-cyan-600 hover:to-cyan-700 transition-all shadow-lg shadow-cyan-500/30 disabled:opacity-60"
           >
             {{ loading ? "Bitte warten..." : (isLogin ? "Anmelden" : "Konto erstellen") }}

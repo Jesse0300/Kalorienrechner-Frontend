@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, reactive, ref } from "vue";
+import { reactive, ref } from "vue";
 import { Mail, Lock, User, Eye, EyeOff } from "lucide-vue-next";
 import { login, register } from "@/service/auth";
 
@@ -22,54 +22,63 @@ function resetError() {
   errorMsg.value = "";
 }
 
-/** ✅ Additiv: Simple Email Regex (frontend-only) */
-const emailOk = computed(() => {
-  const v = formData.email.trim();
-  // bewusst simpel: reicht als UX-Check, Backend bleibt Quelle der Wahrheit
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v);
-});
+/**
+ * ✅ Macht aus allen möglichen Backend/Network-Fehlern eine sinnvolle Nachricht
+ * - String → direkt
+ * - Objekt → bevorzugt message/error/detail, sonst JSON stringify
+ * - Array/Validation → zusammenfassen
+ */
+function extractErrorMessage(err: any): string {
+  const data = err?.response?.data;
 
-const passwordOk = computed(() => {
-  const v = formData.password ?? "";
-  return v.length >= 6;
-});
-
-const nameOk = computed(() => {
-  if (isLogin.value) return true;
-  const v = formData.name.trim();
-  return v.length >= 3;
-});
-
-const canSubmit = computed(() => {
-  if (loading.value) return false;
-  if (!emailOk.value) return false;
-  if (!passwordOk.value) return false;
-  if (!nameOk.value) return false;
-  return true;
-});
-
-const validationHint = computed(() => {
-  if (isLogin.value) {
-    if (!emailOk.value) return "Bitte gib eine gültige E-Mail ein.";
-    if (!passwordOk.value) return "Passwort muss mindestens 6 Zeichen haben.";
-    return "";
+  // Axios Network-Error / ohne response
+  if (!data) {
+    return (
+      err?.message ??
+      err?.response?.statusText ??
+      "Unbekannter Fehler"
+    );
   }
-  if (!nameOk.value) return "Name muss mindestens 3 Zeichen haben.";
-  if (!emailOk.value) return "Bitte gib eine gültige E-Mail ein.";
-  if (!passwordOk.value) return "Passwort muss mindestens 6 Zeichen haben.";
-  return "";
-});
+
+  // Backend gibt string zurück
+  if (typeof data === "string") return data;
+
+  // Backend gibt Objekt zurück
+  if (typeof data === "object") {
+    // typische Felder
+    if (typeof data.message === "string") return data.message;
+    if (typeof data.error === "string") return data.error;
+    if (typeof data.detail === "string") return data.detail;
+
+    // Bean Validation / Field Errors (häufig: errors: [...])
+    if (Array.isArray((data as any).errors)) {
+      const list = (data as any).errors
+        .map((e: any) => {
+          if (typeof e === "string") return e;
+          if (e?.defaultMessage) return e.defaultMessage;
+          if (e?.message) return e.message;
+          if (e?.field && e?.defaultMessage) return `${e.field}: ${e.defaultMessage}`;
+          return null;
+        })
+        .filter(Boolean);
+      if (list.length > 0) return list.join(" • ");
+    }
+
+    // Fallback: Objekt als JSON anzeigen (statt [object Object])
+    try {
+      return JSON.stringify(data);
+    } catch {
+      return "Unbekannter Fehler";
+    }
+  }
+
+  // alles andere
+  return String(data);
+}
 
 async function handleSubmit(e: Event) {
   e.preventDefault();
   resetError();
-
-  // ✅ Additiv: Frontend-Check – verhindert unnötige Requests
-  if (!canSubmit.value) {
-    errorMsg.value = validationHint.value || "Bitte Eingaben prüfen.";
-    return;
-  }
-
   loading.value = true;
 
   try {
@@ -85,12 +94,7 @@ async function handleSubmit(e: Event) {
 
     emit("auth-success");
   } catch (err: any) {
-    const msg =
-      err?.response?.data?.message ??
-      err?.response?.data ??
-      err?.message ??
-      "Unbekannter Fehler";
-    errorMsg.value = String(msg);
+    errorMsg.value = extractErrorMessage(err);
   } finally {
     loading.value = false;
   }
@@ -145,11 +149,6 @@ async function handleSubmit(e: Event) {
                 required
               />
             </div>
-
-            <!-- ✅ Additiv: Hint -->
-            <p v-if="!nameOk" class="mt-2 text-xs text-red-600">
-              Name muss mindestens 3 Zeichen haben.
-            </p>
           </div>
 
           <div>
@@ -164,11 +163,6 @@ async function handleSubmit(e: Event) {
                 required
               />
             </div>
-
-            <!-- ✅ Additiv: Hint -->
-            <p v-if="formData.email.trim().length > 0 && !emailOk" class="mt-2 text-xs text-red-600">
-              Bitte gib eine gültige E-Mail-Adresse ein.
-            </p>
           </div>
 
           <div>
@@ -191,25 +185,18 @@ async function handleSubmit(e: Event) {
                 <Eye v-else class="w-5 h-5" />
               </button>
             </div>
-
-            <!-- ✅ Additiv: Hint -->
-            <p v-if="formData.password.length > 0 && !passwordOk" class="mt-2 text-xs text-red-600">
-              Passwort muss mindestens 6 Zeichen haben.
-            </p>
           </div>
 
-          <!-- ✅ Additiv: allgemeiner Hinweis, wenn disabled -->
-          <p v-if="!canSubmit && !errorMsg && validationHint" class="text-xs text-gray-600">
-            {{ validationHint }}
-          </p>
-
-          <div v-if="errorMsg" class="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+          <div
+            v-if="errorMsg"
+            class="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700"
+          >
             {{ errorMsg }}
           </div>
 
           <button
             type="submit"
-            :disabled="loading || !canSubmit"
+            :disabled="loading"
             class="w-full py-3 bg-gradient-to-r from-cyan-500 to-cyan-600 text-white rounded-lg hover:from-cyan-600 hover:to-cyan-700 transition-all shadow-lg shadow-cyan-500/30 disabled:opacity-60"
           >
             {{ loading ? "Bitte warten..." : (isLogin ? "Anmelden" : "Konto erstellen") }}
@@ -219,5 +206,3 @@ async function handleSubmit(e: Event) {
     </div>
   </div>
 </template>
-
-
